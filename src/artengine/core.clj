@@ -167,7 +167,7 @@
        (binding [seed 0]
 	 (paint g x xs))))
    (paint-handles g (get-selection))
-   (if @sel-start
+   (if (= @mode :select)
      (draw-rect g @sel-start @old-mp))))
 
 
@@ -245,10 +245,7 @@
       (alter-in objs (first @selection) select mp)))
   ([pa pb]
      (dosync
-      (alter-in objs (first @selection) rect-select pa pb)
-      (ref-set sel-start nil))))
-
-
+      (alter-in objs (first @selection) rect-select pa pb))))
 
 (defn do-extend [p]
   (dosync
@@ -267,8 +264,6 @@
       (do-extend (get-pos e))
       (ref-set mode :move)))))
 
-
-
 (defn mouse-released [e]
   (dosync
    (condp = (.getButton e)
@@ -278,9 +273,10 @@
      (cond
       (= @mode :move)
       (ref-set mode :normal)
-      @sel-start
+      (= @mode :select)
       (do
 	(do-select @sel-start (get-pos e))
+	(ref-set mode :normal)
 	(@repaint)))
      nil))
   (@repaint))
