@@ -82,6 +82,9 @@
        xs
        (rest xs)))
 
+(defn alter-in [r key f & args]
+  (alter r assoc key (apply f (get @r key) args)))
+
 (defn draw-lines [g ps]
   (doseq [[pa pb] (pairs ps)]
     (draw-line g pa pb)))

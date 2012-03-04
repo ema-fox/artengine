@@ -8,20 +8,20 @@
 (def ^:dynamic seed)
 
 
-(def objs (ref {1 (ref {:ps [[10 10] [10 130] [130 130]]
-			:sel [false false false]
-			:closed true
-			:decos [2 3]})
-		2 (ref {:ps [[200 50] [210 50] [210 60]]
-			:sel [false false false]
-			:closed false})
-		3 (ref {:ps [[300 50] [320 50] [320 70]]
-			:sel [false false false]
-			:closed false})
-		4 (ref {:ps [[100 20] [20 120] [120 170]]
-			:sel [false false false]
-			:closed true
-			:clip 1})}))
+(def objs (ref {1 {:ps [[10 10] [10 130] [130 130]]
+		   :sel [false false false]
+		   :closed true
+		   :decos [2 3]}
+		2 {:ps [[200 50] [210 50] [210 60]]
+		   :sel [false false false]
+		   :closed false}
+		3 {:ps [[300 50] [320 50] [320 70]]
+		   :sel [false false false]
+		   :closed false}
+		4 {:ps [[100 20] [20 120] [120 170]]
+		   :sel [false false false]
+		   :closed true
+		   :clip 1}}))
 
 (def selection (ref [1 2 3 4]))
 
@@ -136,11 +136,11 @@
 (defn get-polygon [{:keys [ps decos clip]}]
   (let [pol (make-polygon (if decos
 			    (decorate-polygon ps (map (fn [i]
-							@(get @objs i))
+							(get @objs i))
 						      decos))
 			    ps))]
     (if clip
-      (clip-polygon pol (get-polygon @(get @objs clip)))
+      (clip-polygon pol (get-polygon (get @objs clip)))
       pol)))
 
 (defn paint [g {:keys [ps closed clip] :as x}]
@@ -159,14 +159,13 @@
   (dosync
    (doseq [[i x] @objs]
      (binding [seed 0]
-       (paint g (if (and (= x (get-selection))
+       (paint g (if (and (= i (first @selection))
 			 (= @mode :extend))
-		  (extend-obj @x @old-mp)
-		  @x))))
-   ;;   (paint-clipped-polygon g @inps ps))
-     (paint-handles g @(get-selection))
-     (if @sel-start
-       (draw-rect g @sel-start @old-mp))))
+		  (extend-obj x @old-mp)
+		  x))))
+   (paint-handles g (get-selection))
+   (if @sel-start
+     (draw-rect g @sel-start @old-mp))))
 
 
 (defn key-pressed [e]
@@ -198,13 +197,12 @@
 
 (defn do-move [movement]
   (dosync
-   (alter (get-selection) move movement)))
+   (alter-in objs (first @selection) move movement)))
 
 (defn handle-move [mp]
-  (when (= @mode :extend)
-    (@repaint))
   (when (= @mode :move)
-    (do-move (minus mp @old-mp))
+    (do-move (minus mp @old-mp)))
+  (when (not= @mode :normal)
     (@repaint))
   (dosync
    (ref-set old-mp mp)))
@@ -241,22 +239,24 @@
 (defn do-select
   ([mp]
      (dosync
-      (alter (get-selection) select mp)))
+      (alter-in objs (first @selection) select mp)))
   ([pa pb]
      (dosync
-      (alter (get-selection) rect-select pa pb)
+      (alter-in objs (first @selection) rect-select pa pb)
       (ref-set sel-start nil))))
 
 (defn do-extend [p]
   (dosync
-   (alter (get-selection) extend-obj p)))
+   (alter-in objs (first @selection) extend-obj p)))
 
 (defn mouse-pressed [e]
   (dosync
    (cond
     (and (= (.getButton e) MouseEvent/BUTTON1)
 	 (= @mode :normal))
-    (ref-set sel-start [(.getX e) (.getY e)])
+    (do
+      (ref-set mode :select)
+      (ref-set sel-start (get-pos e)))
     (= @mode :extend)
     (do
       (do-extend (get-pos e))
