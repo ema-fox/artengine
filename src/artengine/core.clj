@@ -133,36 +133,39 @@
   (doto (Area. pol2)
     (.intersect (Area. pol1))))
 
-(defn get-polygon [{:keys [ps decos clip]}]
+(defn get-polygon [{:keys [ps decos clip]} xs]
   (let [pol (make-polygon (if decos
 			    (decorate-polygon ps (map (fn [i]
-							(get @objs i))
+							(get xs i))
 						      decos))
 			    ps))]
     (if clip
-      (clip-polygon pol (get-polygon (get @objs clip)))
+      (clip-polygon pol (get-polygon (get xs clip) xs))
       pol)))
 
-(defn paint [g {:keys [ps closed clip] :as x}]
+(defn paint [g {:keys [ps closed clip] :as x} xs]
   (if closed
     (do
       (set-color g (if clip
 		     [200 150 50]
 		     [30 70 20]))
-      (.fill g (get-polygon x)))
+      (.fill g (get-polygon x xs)))
     (draw-lines g ps)))
 
 (defn get-selection []
   (get @objs (first @selection)))
 
+(defn extend-objs [xs i p]
+  (assoc xs i (extend-obj (get xs i) p)))
+
 (defn render [g]
   (dosync
-   (doseq [[i x] @objs]
-     (binding [seed 0]
-       (paint g (if (and (= i (first @selection))
-			 (= @mode :extend))
-		  (extend-obj x @old-mp)
-		  x))))
+   (let [xs (if (= @mode :extend)
+	      (extend-objs @objs (first @selection) @old-mp)
+	      @objs)]
+     (doseq [[i x] xs]
+       (binding [seed 0]
+	 (paint g x xs))))
    (paint-handles g (get-selection))
    (if @sel-start
      (draw-rect g @sel-start @old-mp))))
@@ -245,9 +248,11 @@
       (alter-in objs (first @selection) rect-select pa pb)
       (ref-set sel-start nil))))
 
+
+
 (defn do-extend [p]
   (dosync
-   (alter-in objs (first @selection) extend-obj p)))
+   (alter objs extend-objs (first @selection) p)))
 
 (defn mouse-pressed [e]
   (dosync
