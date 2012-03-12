@@ -6,7 +6,7 @@ A vector drawing program.
 
 start with `lein run`
 
-try the keys G, E, and T.
+try the keys G, Tab, and E.
 
 ## License
 
