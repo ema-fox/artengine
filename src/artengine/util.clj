@@ -88,7 +88,9 @@
 (defn draw-lines [g ps]
   (doseq [[pa pb] (pairs ps)]
     (draw-line g pa pb)))
-	 
+
+(defn shape-contains [shape [p0 p1]]
+  (.contains shape p0 p1))
 
 (defn set-color [g [c0 c1 c2]]
   (.setColor g (Color. c0 c1 c2)))
@@ -126,6 +128,7 @@
 		(.add panel) 
 		.pack 
 		.show
+		(.setFocusTraversalKeysEnabled false)
 		(.addKeyListener (proxy [KeyListener] []
 				   (keyPressed [e] (key-pressed e))
 				   (keyTyped [e])

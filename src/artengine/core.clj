@@ -1,40 +1,44 @@
 (ns artengine.core
-  (:use [artengine.util])
+  (:use [artengine.util]
+	[clojure.stacktrace])
   (:import [java.awt.event KeyEvent MouseEvent]
 	   [java.awt.geom Area]))
 
 (def repaint (ref nil))
 
-(def ^:dynamic seed)
-
 
 (def objs (ref {1 {:ps [[10 10] [10 130] [130 130]]
-		   :sel [false false false]
+		   :fill-color [20 70 10]
 		   :closed true
 		   :decos [2 3]}
 		2 {:ps [[200 50] [210 50] [210 60]]
-		   :sel [false false false]
+		   :line-color [0 0 0]
 		   :closed false}
 		3 {:ps [[300 50] [320 50] [320 70]]
-		   :sel [false false false]
+		   :line-color [0 0 0]
 		   :closed false}
 		4 {:ps [[100 20] [20 120] [120 170]]
-		   :sel [false false false]
+		   :fill-color [200 150 50]
 		   :closed true
 		   :clip 1}}))
 
-(def selection (ref [1 2 3 4]))
+(def stack (ref [1 2 3 4]))
+
+					;TODO: maybe store selection in a map with objs as keys and ps as set as values
+;but what is with selected ps that arent in selected objs?
+(def selected-objs (ref #{1 2}))
+(def selected-ps (ref #{[1 0] [1 2]}))
 
 (def sel-start (ref nil))
 
-(defn set-seed! []
-  (set! seed (mod (* 111 (+ 5 (bit-xor seed (bit-shift-right seed 2)))) 64)))
+(defn scramble [x]
+  (mod (* 111 (+ 5 (bit-xor x (bit-shift-right x 2)))) 64))
 
-(defn p-rand-nth [xs]
-  (set-seed!)
-  (nth xs (mod seed (count xs))))
+(defn p-rand-nth [xs n]
+  (nth xs (mod (scramble n) (count xs))))
 
-(def mode (ref :normal))
+(def action (ref :normal))
+(def mode (ref :object))
 
 (def old-mp (ref [0 0]))
 
@@ -53,13 +57,14 @@
 	 (cons (last ps) (butlast ps))
 	 (rest ps))))
 
-(defn paint-handles [g {:keys [ps sel]}]
-  (doall (map (fn [p selected]
-		(set-color g (if selected
-			       [250 200 0]
-			       [0 0 0]))
-		(fill-rect g (minus p [1 1]) [3 3]))
-	      ps sel)))
+(defn paint-handle [g p]
+  (fill-rect g (minus p [1 1]) [3 3]))
+
+(defn paint-handles [g {:keys [ps]}]
+  (set-color g [0 0 0])
+  (doseq [p ps]
+    (paint-handle g p)))
+
 
 (defn prepare-deco [{:keys [ps]} arc]
   (let [step1 (for [p ps]
@@ -75,19 +80,20 @@
 (defn decorate-line [pa pb decos]
   (let [decos (map #(prepare-deco % (arc<-dir (direction pa pb))) decos)
 	dist (distance pa pb)
-	[n leftover] (binding [seed seed]
-		       (loop [n 0
-			      dist2 dist]
-			 (let [deco (p-rand-nth decos)]
-			   (if (> dist2 (:length deco))
-			     (recur (inc n) (- dist2 (:length deco)))
-			     [n dist2]))))]
-    (loop [dist2 dist
+	[n leftover] (loop [n 0
+			    dist2 dist]
+		       (let [deco (p-rand-nth decos (apply bit-xor n (concat pa pb)))]
+			 (if (> dist2 (:length deco))
+			   (recur (inc n) (- dist2 (:length deco)))
+			   [n dist2])))]
+    (loop [i 0
+	   dist2 dist
 	   res []]
-      (let [deco (p-rand-nth decos)]
+      (let [deco (p-rand-nth decos (apply bit-xor i (concat pa pb)))]
 	(if (> dist2 (:length deco))
 	  (let [p (avg-point pb pa (/ dist2 dist))]
-	    (recur (- dist2 (:length deco) (/ leftover n))
+	    (recur (inc i)
+		   (- dist2 (:length deco) (/ leftover n))
 		   (concat res (for [pm (butlast (:ps deco))]
 				 (plus pm p)))))
 	  res)))))
@@ -96,16 +102,9 @@
   (apply concat (for [[pa pb] (pairs-cycle ps)]
 		  (decorate-line pa pb decos))))
 
-(defn paint-polygon [g {:keys [ps sel]}]
-  (fill-polygon g (decorate-polygon ps)))
-		
-
 (defn paint-clipped-polygon [g {:keys [ps]} clipps]
   (.fill g (doto (Area. (make-polygon clipps))
 	     (.intersect (Area. (make-polygon ps))))))
-
-(defn paint-lines [g {:keys [ps sel]}]
-  (draw-lines g ps))
 
 (defn extend-helper [lines p]
   (->> (for [[pa pb i] lines
@@ -115,23 +114,25 @@
 	   (let [[pd pe] (sort-by #(distance % pc) [pa pb])]
 	     [(avg-point pd pe (/ (- (distance pd pe) 1) (distance pd pe))) i])))
        (sort-by #(distance (first %) p))
-       first
-       second))
+       first))
 
-(defn extend-obj [{:keys [ps sel closed] :as x} p]
-  (let [i (extend-helper (map conj
-			      (get-lines x)
-			      (if closed
-				(range)
-				(rest (range))))
-			 p)]
+					;TODO: scrambles selection
+					;handle it in the right caller
+(defn extend-obj [{:keys [ps closed] :as x} p]
+  (let [i (second (extend-helper (map conj
+				      (get-lines x)
+				      (if closed
+					(range)
+					(rest (range))))
+				 p))]
     (assoc x
-      :ps (concat (take i ps) [p] (drop i ps))
-      :sel (concat (repeat i false) [true] (repeat (- (count sel) i) false)))))
+      :ps (concat (take i ps) [p] (drop i ps)))))
 
 (defn clip-polygon [pol1 pol2]
   (doto (Area. pol2)
     (.intersect (Area. pol1))))
+
+
 
 (defn get-polygon [{:keys [ps decos clip]} xs]
   (let [pol (make-polygon (if decos
@@ -143,31 +144,62 @@
       (clip-polygon pol (get-polygon (get xs clip) xs))
       pol)))
 
-(defn paint [g {:keys [ps closed clip] :as x} xs]
-  (if closed
-    (do
-      (set-color g (if clip
-		     [200 150 50]
-		     [30 70 20]))
-      (.fill g (get-polygon x xs)))
-    (draw-lines g ps)))
+(defn obj-near?
+  "determines if x is near or under p"
+  [{:keys [closed] :as x} p xs]
+  (or (< (distance (first (extend-helper (get-lines x) p)) p) 20)
+      (when closed
+	(shape-contains (get-polygon x xs) p))))
 
-(defn get-selection []
-  (get @objs (first @selection)))
+(defn paint [g {:keys [ps closed clip fill-color line-color] :as x} xs]
+  (when fill-color
+    (set-color g fill-color)
+    (.fill g (get-polygon x xs)))
+  (when line-color
+    (set-color g line-color)
+    (if closed
+      (.draw g (get-polygon x xs))
+      (draw-lines g ps))))
+
 
 (defn extend-objs [xs i p]
   (assoc xs i (extend-obj (get xs i) p)))
 
+(defn select-obj [xs mp]
+  (let [seli (->> (map (fn [obj-i]
+			 [obj-i (get xs obj-i)])
+		       (reverse @stack))
+		  (filter (fn [[obj-i x]]
+			    (obj-near? x mp xs)))
+		  first
+		  first)]
+    (if seli
+      #{seli}
+      #{})))
+
 (defn render [g]
   (dosync
-   (let [xs (if (= @mode :extend)
-	      (extend-objs @objs (first @selection) @old-mp)
+   (set-color g [127 127 127])
+   (fill-rect g [0 0] [1000 1000])
+   (let [xs (if (= @action :extend)
+	      (extend-objs @objs (first @selected-objs) @old-mp)
 	      @objs)]
      (doseq [[i x] xs]
-       (binding [seed 0]
-	 (paint g x xs))))
-   (paint-handles g (get-selection))
-   (if (= @mode :select)
+       (paint g x xs))
+     (if-let [sel (get xs (first (select-obj xs @old-mp)))]
+       (paint g (dissoc (assoc sel :line-color [200 0 200]) :clip :fill-color) xs))
+     (doseq [obj-i @selected-objs :let [x (get xs obj-i)]]
+       (if (= @mode :mesh)
+	 (paint-handles g x)
+	 (paint g (dissoc (assoc x :line-color [250 200 0]) :clip :fill-color) xs)))
+     (set-color g [250 200 0])
+     (doseq [[obj-i i] @selected-ps :let [p (nth (:ps (get xs obj-i)) i)]]
+       (when (and (= @mode :mesh) (some #{obj-i} @selected-objs))
+	 (paint-handle g p))))
+   (set-color g [0 0 0])
+   (.drawString g (str @mode) 10 20)
+   (.drawString g (str @action) 10 40)
+   (if (= @action :select)
      (draw-rect g @sel-start @old-mp))))
 
 
@@ -176,37 +208,60 @@
     (condp = key
 	KeyEvent/VK_ESCAPE
       (System/exit 0)
-      KeyEvent/VK_T
+      KeyEvent/VK_TAB
       (dosync
-       (alter selection lcycle)
+       (ref-set mode (if (= @mode :object)
+		       :mesh
+		       :object))
        (@repaint))
-      KeyEvent/VK_E			;todo handle append
-      (dosync				;todo holding e, more than one new point
-       (ref-set mode :extend)
-       (@repaint))
+      KeyEvent/VK_E
+      (if (= @mode :mesh) 		;todo handle append
+	(dosync				;todo holding e, more than one new point
+	 (ref-set action :extend)
+	 (@repaint)))
       KeyEvent/VK_G
       (dosync
-       (ref-set mode :move))
+       (ref-set action :move))
       nil)))
 
-(defn move [x movement]
+(defn move-ps [x movement selis]
+  (assoc x :ps (map-indexed (fn [i p]
+			      (if (some #{i} selis)
+				(plus p movement)
+				p))
+			    (:ps x))))
+
+
+(defn move [xs sel-objs selis movement]
+  (into xs
+	(map (fn [obj-i]
+	       [obj-i (->> selis
+			   (filter #(= (first %) obj-i))
+			   (map second)
+			   (move-ps (get xs obj-i) movement))])
+	     sel-objs)))
+
+(defn move-obj [x movement]
   (assoc x
-    :ps (map (fn [p selected]
-	       (if selected
-		 (plus p movement)
-		 p))
-	     (:ps x)
-	     (:sel x))))
+    :ps (for [p (:ps x)]
+	  (plus p movement))))
+
+(defn move-objs [xs sel-objs movement]
+  (into xs (for [obj-i sel-objs]
+	     [obj-i (move-obj (get xs obj-i) movement)])))
+		    
 
 (defn do-move [movement]
   (dosync
-   (alter-in objs (first @selection) move movement)))
+   (if (= @mode :mesh)
+     (alter objs move @selected-objs @selected-ps movement)
+     (alter objs move-objs @selected-objs movement))))
 
 (defn handle-move [mp]
-  (when (= @mode :move)
+  (when (= @action :move)
     (do-move (minus mp @old-mp)))
-  (when (not= @mode :normal)
-    (@repaint))
+  ;(when (not= @action :normal)
+    (@repaint);)
   (dosync
    (ref-set old-mp mp)))
 
@@ -217,66 +272,85 @@
 (defn mouse-dragged [e]
   (handle-move (get-pos e)))
 
+(defn selectable-ps [xs obj-is]
+  (for [obj-i obj-is
+	[p i] (map-indexed (fn [i p] [p i])
+			   (:ps (get xs obj-i)))]
+    [p [obj-i i]]))
+			     
 
-(defn select [x mp]
-  (let [is (range (count (:ps x)))
-	seli (->>
-	      (map (fn [p i]
-		     [(distance mp p) i])
-		   (:ps x)
-		   is)
-	      (filter #(< (first %) 30))
-	      (sort-by first)
-	      first
-	      second)]
-    (assoc x :sel (map #(= seli %) is))))
+(defn select [xs sel-objs mp]
+  (let [seli (->> (selectable-ps xs sel-objs)
+		  (map (fn [[p i]]
+			 [(distance mp p) i]))
+		  (filter #(< (first %) 30))
+		  (sort-by first)
+		  first
+		  second)]
+    (if seli
+      #{seli}
+      #{})))
 
-(defn rect-select [x pa pb]
-  (assoc x
-    :sel (map (fn [p s]
-		(or s
-		    (contains pa pb p)))
-	      (:ps x)
-	      (:sel x))))
+(defn rect-select [selis xs sel-objs pa pb]
+  (->> (selectable-ps xs @selected-objs)
+       (filter (fn [[p i]]
+		 (contains pa pb p)))
+       (map second)
+       (into selis)))
+
+(defn obj-contains [pa pb x]
+  (every? #(contains pa pb %) (:ps x)))
+  
+(defn rect-select-obj [sel-obj-is xs pa pb]
+  (->> xs
+       (filter (fn [[obj-i x]]
+		 (obj-contains pa pb x)))
+       (map first)
+       (into sel-obj-is)))
 
 (defn do-select
   ([mp]
      (dosync
-      (alter-in objs (first @selection) select mp)))
+      (if (= @mode :mesh)
+	(ref-set selected-ps (select @objs @selected-objs mp))
+	(ref-set selected-objs (select-obj @objs mp)))))
   ([pa pb]
      (dosync
-      (alter-in objs (first @selection) rect-select pa pb))))
+      (if (= @mode :mesh)
+	(alter selected-ps rect-select @objs @selected-objs pa pb)
+	(alter selected-objs rect-select-obj @objs pa pb)))))
 
+;TODO: extend extend to extend more than only on object of the selection
 (defn do-extend [p]
   (dosync
-   (alter objs extend-objs (first @selection) p)))
+   (alter objs extend-objs (first @selected-objs) p)))
 
 (defn mouse-pressed [e]
   (dosync
    (cond
     (and (= (.getButton e) MouseEvent/BUTTON1)
-	 (= @mode :normal))
+	 (= @action :normal))
     (do
-      (ref-set mode :select)
+      (ref-set action :select)
       (ref-set sel-start (get-pos e)))
-    (= @mode :extend)
+    (= @action :extend)
     (do
       (do-extend (get-pos e))
-      (ref-set mode :move)))))
+      (ref-set action :move)))))
 
 (defn mouse-released [e]
   (dosync
    (condp = (.getButton e)
-       MouseEvent/BUTTON3
-     (do-select (get-pos e))
-     MouseEvent/BUTTON1
+       MouseEvent/BUTTON1
      (cond
-      (= @mode :move)
-      (ref-set mode :normal)
-      (= @mode :select)
-      (do
-	(do-select @sel-start (get-pos e))
-	(ref-set mode :normal)
+      (= @action :move)
+      (ref-set action :normal)
+      (= @action :select)
+      (let [mp (get-pos e)]
+	(if (< (distance @sel-start mp) 5)
+	  (do-select mp)
+	  (do-select @sel-start (get-pos e)))
+	(ref-set action :normal)
 	(@repaint)))
      nil))
   (@repaint))
