@@ -1,5 +1,6 @@
 (ns artengine.core
   (:use [artengine.util]
+	[artengine.edit]
 	[clojure.stacktrace])
   (:import [java.awt.event KeyEvent MouseEvent]
 	   [java.awt.geom Area]))
@@ -42,21 +43,6 @@
 
 (def old-mp (ref [0 0]))
 
-(defn lcycle [xs]
-  (conj (vec (rest xs)) (first xs)))
-
-(defn pairs-cycle [xs]
-  (map (fn [x y] [x y])
-       xs
-       (cons (last xs) (butlast xs))))
-
-(defn get-lines [{:keys [ps closed]}]
-  (map (fn [x y] [x y])
-       ps
-       (if closed
-	 (cons (last ps) (butlast ps))
-	 (rest ps))))
-
 (defn paint-handle [g p]
   (fill-rect g (minus p [1 1]) [3 3]))
 
@@ -64,7 +50,6 @@
   (set-color g [0 0 0])
   (doseq [p ps]
     (paint-handle g p)))
-
 
 (defn prepare-deco [{:keys [ps]} arc]
   (let [step1 (for [p ps]
@@ -75,8 +60,6 @@
      :ps (for [[a dist] step1]
 	   (dvec<-avec [(+ a corrective-arc) dist]))}))
 	
-
-
 (defn decorate-line [pa pb decos]
   (let [decos (map #(prepare-deco % (arc<-dir (direction pa pb))) decos)
 	dist (distance pa pb)
@@ -98,47 +81,19 @@
 				 (plus pm p)))))
 	  res)))))
 
-(defn decorate-polygon [ps decos]
-  (apply concat (for [[pa pb] (pairs-cycle ps)]
-		  (decorate-line pa pb decos))))
-
 (defn paint-clipped-polygon [g {:keys [ps]} clipps]
   (.fill g (doto (Area. (make-polygon clipps))
 	     (.intersect (Area. (make-polygon ps))))))
-
-(defn extend-helper [lines p]
-  (->> (for [[pa pb i] lines
-	     :let [pc (p-on-line pa pb p)]]
-	 (if (contains pa pb pc)
-	   [pc i]
-	   (let [[pd pe] (sort-by #(distance % pc) [pa pb])]
-	     [(avg-point pd pe (/ (- (distance pd pe) 1) (distance pd pe))) i])))
-       (sort-by #(distance (first %) p))
-       first))
-
-					;TODO: scrambles selection
-					;handle it in the right caller
-(defn extend-obj [{:keys [ps closed] :as x} p]
-  (let [i (second (extend-helper (map conj
-				      (get-lines x)
-				      (if closed
-					(range)
-					(rest (range))))
-				 p))]
-    (assoc x
-      :ps (concat (take i ps) [p] (drop i ps)))))
 
 (defn clip-polygon [pol1 pol2]
   (doto (Area. pol2)
     (.intersect (Area. pol1))))
 
-
-
-(defn get-polygon [{:keys [ps decos clip]} xs]
+(defn get-polygon [{:keys [ps decos clip] :as x} xs]
   (let [pol (make-polygon (if decos
-			    (decorate-polygon ps (map (fn [i]
-							(get xs i))
-						      decos))
+			    (let [deco-objs (for [i decos] (get xs i))]
+			      (apply concat (for [[pa pb] (get-lines x)]
+					      (decorate-line pa pb deco-objs))))
 			    ps))]
     (if clip
       (clip-polygon pol (get-polygon (get xs clip) xs))
@@ -147,7 +102,9 @@
 (defn obj-near?
   "determines if x is near or under p"
   [{:keys [closed] :as x} p xs]
-  (or (< (distance (first (extend-helper (get-lines x) p)) p) 20)
+  (or (some (fn [[pa pb]]
+	      (< (line-p-distance pa pb p) 20))
+	    (get-lines x))
       (when closed
 	(shape-contains (get-polygon x xs) p))))
 
@@ -160,10 +117,6 @@
     (if closed
       (.draw g (get-polygon x xs))
       (draw-lines g ps))))
-
-
-(defn extend-objs [xs i p]
-  (assoc xs i (extend-obj (get xs i) p)))
 
 (defn select-obj [xs mp]
   (let [seli (->> (map (fn [obj-i]
@@ -182,7 +135,7 @@
    (set-color g [127 127 127])
    (fill-rect g [0 0] [1000 1000])
    (let [xs (if (= @action :extend)
-	      (extend-objs @objs (first @selected-objs) @old-mp)
+	      (extend-objs @objs @selected-objs @old-mp)
 	      @objs)]
      (doseq [[i x] xs]
        (paint g x xs))
@@ -201,7 +154,6 @@
    (.drawString g (str @action) 10 40)
    (if (= @action :select)
      (draw-rect g @sel-start @old-mp))))
-
 
 (defn key-pressed [e]
   (let [key (.getKeyCode e)]
@@ -223,33 +175,6 @@
       (dosync
        (ref-set action :move))
       nil)))
-
-(defn move-ps [x movement selis]
-  (assoc x :ps (map-indexed (fn [i p]
-			      (if (some #{i} selis)
-				(plus p movement)
-				p))
-			    (:ps x))))
-
-
-(defn move [xs sel-objs selis movement]
-  (into xs
-	(map (fn [obj-i]
-	       [obj-i (->> selis
-			   (filter #(= (first %) obj-i))
-			   (map second)
-			   (move-ps (get xs obj-i) movement))])
-	     sel-objs)))
-
-(defn move-obj [x movement]
-  (assoc x
-    :ps (for [p (:ps x)]
-	  (plus p movement))))
-
-(defn move-objs [xs sel-objs movement]
-  (into xs (for [obj-i sel-objs]
-	     [obj-i (move-obj (get xs obj-i) movement)])))
-		    
 
 (defn do-move [movement]
   (dosync
@@ -323,7 +248,7 @@
 ;TODO: extend extend to extend more than only on object of the selection
 (defn do-extend [p]
   (dosync
-   (alter objs extend-objs (first @selected-objs) p)))
+   (alter objs extend-objs @selected-objs p)))
 
 (defn mouse-pressed [e]
   (dosync
