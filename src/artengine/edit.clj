@@ -1,12 +1,17 @@
 (ns artengine.edit
   (:use [artengine.util]))
 
-(defn get-lines [{:keys [ps closed]}]
-  (map (fn [x y] [x y])
-       ps
+(defn get-ilines [{:keys [ps ls closed]}]
+  (map vector
+       ls
        (if closed
-	 (cons (last ps) (butlast ps))
-	 (rest ps))))
+	 (cons (last ls) (butlast ls))
+	 (rest ls))))
+
+(defn get-lines [{:keys [ps] :as x}]
+  (map (fn [[x y]]
+	 [(get ps x) (get ps y)])
+       (get-ilines x)))
 
 (defn line-p-distance [pa pb p]
   (let [pc (p-on-line pa pb p)
@@ -16,49 +21,48 @@
 	       (plus pd (direction pd pe))))]
     (distance p pf)))
 
-(defn extend-obj [{:keys [ps closed] :as x} p retfn]
-  (map (fn [[pa pb] i]
-	 [(line-p-distance pa pb p)
-	  (fn []
-	    (retfn (assoc x
-		     :ps (concat (take i ps) [p] (drop i ps)))))])
-       (get-lines x)
+(defn extend-obj [{:keys [ps ls closed] :as x} p retfn]
+  (map (fn [[ia ib] i]
+	 (let [pa (get ps ia)
+	       pb (get ps ib)]
+	   [(line-p-distance pa pb p)
+	    (fn []
+	      (let [newi (inc (apply max ls))]
+		(retfn [(assoc x
+			  :ps (assoc ps newi p)
+			  :ls (concat (take i ls) [newi] (drop i ls)))
+			newi])))]))
+       (get-ilines x)
        (if closed
 	 (range)
 	 (rest (range)))))
 
-					;TODO: scrambles selection
-					;give every point a non changing id
-					;instead of refering with index
 (defn extend-objs [xs obj-is p]
   (let [foo (->> (for [obj-i obj-is]
-		   (extend-obj (get xs obj-i) p #(assoc xs obj-i %)))
+		   (extend-obj (get xs obj-i) p (fn [[x i]]
+						  [(assoc xs obj-i x)
+						   [obj-i i]])))
 		 (apply concat)
 		 (sort-by first)
 		 first
 		 second)]
     (foo)))
 
-(defn move-ps [x movement selis]
-  (assoc x :ps (map-indexed (fn [i p]
-			      (if (some #{i} selis)
-				(plus p movement)
-				p))
-			    (:ps x))))
+(defn move-ps [{:keys [ps] :as x} movement selis]
+  (assoc x :ps (into ps (map (fn [i]
+			       [i (plus (get ps i) movement)])
+			     selis))))
 
 (defn move [xs sel-objs selis movement]
   (into xs
 	(map (fn [obj-i]
-	       [obj-i (->> selis
-			   (filter #(= (first %) obj-i))
-			   (map second)
-			   (move-ps (get xs obj-i) movement))])
+	       [obj-i (move-ps (get xs obj-i) movement (get selis obj-i))])
 	     sel-objs)))
 
 (defn move-obj [x movement]
   (assoc x
-    :ps (for [p (:ps x)]
-	  (plus p movement))))
+    :ps (into {} (for [[i p] (:ps x)]
+		   [i (plus p movement)]))))
 
 (defn move-objs [xs sel-objs movement]
   (into xs (for [obj-i sel-objs]

@@ -7,28 +7,30 @@
 
 (def repaint (ref nil))
 
-
-(def objs (ref {1 {:ps [[10 10] [10 130] [130 130]]
+(def objs (ref {1 {:ps {1 [10 10] 2 [10 130] 3 [130 130]}
+		   :ls [1 2 3]
 		   :fill-color [20 70 10]
 		   :closed true
 		   :decos [2 3]}
-		2 {:ps [[200 50] [210 50] [210 60]]
+		2 {:ps {1 [200 50] 2 [210 50] 3 [210 60]}
+		   :ls [1 2 3]
 		   :line-color [0 0 0]
 		   :closed false}
-		3 {:ps [[300 50] [320 50] [320 70]]
+		3 {:ps {1 [300 50] 2 [320 50] 3 [320 70]}
+		   :ls [1 2 3]
 		   :line-color [0 0 0]
 		   :closed false}
-		4 {:ps [[100 20] [20 120] [120 170]]
+		4 {:ps {1 [100 20] 2 [20 120] 3 [120 170]}
+		   :ls [1 2 3]
 		   :fill-color [200 150 50]
 		   :closed true
 		   :clip 1}}))
 
 (def stack (ref [1 2 3 4]))
 
-					;TODO: maybe store selection in a map with objs as keys and ps as set as values
-;but what is with selected ps that arent in selected objs?
 (def selected-objs (ref #{1 2}))
-(def selected-ps (ref #{[1 0] [1 2]}))
+
+(def selected-ps (ref {1 #{2}}))
 
 (def sel-start (ref nil))
 
@@ -46,20 +48,20 @@
 (defn paint-handle [g p]
   (fill-rect g (minus p [1 1]) [3 3]))
 
-(defn paint-handles [g {:keys [ps]}]
+(defn paint-handles [g {:keys [ps ls]}]
   (set-color g [0 0 0])
-  (doseq [p ps]
-    (paint-handle g p)))
+  (doseq [i ls]
+    (paint-handle g (get ps i))))
 
-(defn prepare-deco [{:keys [ps]} arc]
-  (let [step1 (for [p ps]
-		(avec<-dvec (minus p (first ps))))
+(defn prepare-deco [{:keys [ps ls]} arc]
+  (let [step1 (for [i ls]
+		(avec<-dvec (minus (get ps i) (get ps (first ls)))))
 	length (second (last step1))
 	corrective-arc (- arc (first (last step1)) (/ tau 2))]
     {:length length
      :ps (for [[a dist] step1]
 	   (dvec<-avec [(+ a corrective-arc) dist]))}))
-	
+
 (defn decorate-line [pa pb decos]
   (let [decos (map #(prepare-deco % (arc<-dir (direction pa pb))) decos)
 	dist (distance pa pb)
@@ -81,20 +83,16 @@
 				 (plus pm p)))))
 	  res)))))
 
-(defn paint-clipped-polygon [g {:keys [ps]} clipps]
-  (.fill g (doto (Area. (make-polygon clipps))
-	     (.intersect (Area. (make-polygon ps))))))
-
 (defn clip-polygon [pol1 pol2]
   (doto (Area. pol2)
     (.intersect (Area. pol1))))
 
-(defn get-polygon [{:keys [ps decos clip] :as x} xs]
+(defn get-polygon [{:keys [ps ls decos clip] :as x} xs]
   (let [pol (make-polygon (if decos
 			    (let [deco-objs (for [i decos] (get xs i))]
 			      (apply concat (for [[pa pb] (get-lines x)]
 					      (decorate-line pa pb deco-objs))))
-			    ps))]
+			    (map #(get ps %) ls)))]
     (if clip
       (clip-polygon pol (get-polygon (get xs clip) xs))
       pol)))
@@ -108,7 +106,7 @@
       (when closed
 	(shape-contains (get-polygon x xs) p))))
 
-(defn paint [g {:keys [ps closed clip fill-color line-color] :as x} xs]
+(defn paint [g {:keys [ps ls closed clip fill-color line-color] :as x} xs]
   (when fill-color
     (set-color g fill-color)
     (.fill g (get-polygon x xs)))
@@ -116,7 +114,7 @@
     (set-color g line-color)
     (if closed
       (.draw g (get-polygon x xs))
-      (draw-lines g ps))))
+      (draw-lines g (map #(get ps %) ls)))))
 
 (defn select-obj [xs mp]
   (let [seli (->> (map (fn [obj-i]
@@ -135,7 +133,7 @@
    (set-color g [127 127 127])
    (fill-rect g [0 0] [1000 1000])
    (let [xs (if (= @action :extend)
-	      (extend-objs @objs @selected-objs @old-mp)
+	      (first (extend-objs @objs @selected-objs @old-mp))
 	      @objs)]
      (doseq [[i x] xs]
        (paint g x xs))
@@ -146,7 +144,9 @@
 	 (paint-handles g x)
 	 (paint g (dissoc (assoc x :line-color [250 200 0]) :clip :fill-color) xs)))
      (set-color g [250 200 0])
-     (doseq [[obj-i i] @selected-ps :let [p (nth (:ps (get xs obj-i)) i)]]
+     (doseq [[obj-i is] @selected-ps
+	     i is
+	     :let [p (get (:ps (get xs obj-i)) i)]]
        (when (and (= @mode :mesh) (some #{obj-i} @selected-objs))
 	 (paint-handle g p))))
    (set-color g [0 0 0])
@@ -198,14 +198,14 @@
   (handle-move (get-pos e)))
 
 (defn selectable-ps [xs obj-is]
-  (for [obj-i obj-is
-	[p i] (map-indexed (fn [i p] [p i])
-			   (:ps (get xs obj-i)))]
-    [p [obj-i i]]))
-			     
+  (for [obj-i obj-is]
+    [obj-i (for [i (:ls (get xs obj-i))]
+	     [(get (:ps (get xs obj-i)) i) i])]))
 
 (defn select [xs sel-objs mp]
-  (let [seli (->> (selectable-ps xs sel-objs)
+  (let [seli (->> (for [[obj-i foos] (selectable-ps xs sel-objs)
+			[p i] foos]
+		    [p [obj-i i]])
 		  (map (fn [[p i]]
 			 [(distance mp p) i]))
 		  (filter #(< (first %) 30))
@@ -213,18 +213,22 @@
 		  first
 		  second)]
     (if seli
-      #{seli}
-      #{})))
+      {(first seli) #{(second seli)}}
+      {})))
 
 (defn rect-select [selis xs sel-objs pa pb]
   (->> (selectable-ps xs @selected-objs)
-       (filter (fn [[p i]]
-		 (contains pa pb p)))
-       (map second)
-       (into selis)))
+       (map (fn [[obj-i foos]]
+	      [obj-i (set (map second (filter (fn [[p i]]
+						(contains pa pb p))
+					      foos)))]))
+       (into {})
+       (merge-with (fn [a b] (into a b)) selis)))
 
 (defn obj-contains [pa pb x]
-  (every? #(contains pa pb %) (:ps x)))
+  (every? (fn [[i p]]
+	    (contains pa pb p))
+	  (:ps x)))
   
 (defn rect-select-obj [sel-obj-is xs pa pb]
   (->> xs
@@ -245,10 +249,11 @@
 	(alter selected-ps rect-select @objs @selected-objs pa pb)
 	(alter selected-objs rect-select-obj @objs pa pb)))))
 
-;TODO: extend extend to extend more than only on object of the selection
 (defn do-extend [p]
   (dosync
-   (alter objs extend-objs @selected-objs p)))
+   (let [[xs [obj-i i]] (extend-objs @objs @selected-objs p)]
+     (ref-set objs xs)
+     (ref-set selected-ps {obj-i #{i}}))))
 
 (defn mouse-pressed [e]
   (dosync
