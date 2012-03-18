@@ -48,6 +48,19 @@
 		 second)]
     (foo)))
 
+(defn append [{:keys [ps ls] :as x} p]
+  (if (< (distance p (get ps (first ls))) 10)
+    (assoc x :closed true)
+    (let [newi (inc (apply max (map first ps)))]
+      (assoc x
+	:ls (conj (vec ls) newi)
+	:ps (assoc ps newi p)))))
+
+(defn new-obj [xs p]
+  (let [newi (inc (apply max (map first xs)))]
+    [(assoc xs newi {:ps {1 p} :ls [1] :closed false :line-color [0 0 0]})
+     newi]))
+
 (defn fix-obj [{:keys [decos] :as x} xs]
   (let [newdecos (filter #(get xs %) decos)]
     (if (seq newdecos)

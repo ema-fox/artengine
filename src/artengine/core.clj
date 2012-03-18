@@ -132,8 +132,12 @@
   (dosync
    (set-color g [127 127 127])
    (fill-rect g [0 0] [1000 1000])
-   (let [xs (if (= @action :extend)
+   (let [xs (condp = @action
+		:extend
 	      (first (extend-objs @objs @selected-objs @old-mp))
+	      :append
+	      (let [obj-i (first @selected-objs)]
+		(assoc @objs obj-i (append (get @objs obj-i) @old-mp)))
 	      @objs)]
      (doseq [[i x] xs]
        (paint g x xs))
@@ -185,6 +189,12 @@
       KeyEvent/VK_DELETE
       (do (do-delete)
 	  (@repaint))
+      KeyEvent/VK_SPACE
+      (dosync
+       (ref-set mode :mesh)
+       (if (= @action :normal)
+	 (ref-set action :new-obj)
+	 (ref-set action :normal)))
       KeyEvent/VK_G
       (dosync
        (ref-set action :move))
@@ -262,6 +272,18 @@
 	(alter selected-ps rect-select @objs @selected-objs pa pb)
 	(alter selected-objs rect-select-obj @objs pa pb)))))
 
+(defn do-new-obj [p]
+  (let [[xs obj-i] (new-obj @objs p)]
+    (ref-set objs xs)
+    (ref-set selected-objs #{obj-i})))
+
+(defn do-append [p]
+  (let [obj-i (first @selected-objs)
+	x (append (get @objs obj-i) p)]
+    (when (:closed x)
+      (ref-set action :normal))
+    (alter objs assoc obj-i x)))
+
 (defn do-extend [p]
   (dosync
    (let [[xs [obj-i i]] (extend-objs @objs @selected-objs p)]
@@ -270,16 +292,23 @@
 
 (defn mouse-pressed [e]
   (dosync
-   (cond
-    (and (= (.getButton e) MouseEvent/BUTTON1)
-	 (= @action :normal))
-    (do
-      (ref-set action :select)
-      (ref-set sel-start (get-pos e)))
-    (= @action :extend)
-    (do
-      (do-extend (get-pos e))
-      (ref-set action :move)))))
+   (if (= (.getButton e) MouseEvent/BUTTON1)
+     (condp = @action
+	 :normal
+       (do
+	 (ref-set action :select)
+	 (ref-set sel-start (get-pos e)))
+       :new-obj
+       (do
+	 (do-new-obj (get-pos e))
+	 (ref-set action :append))
+       :append
+       (do-append (get-pos e))
+       :extend
+       (do
+	 (do-extend (get-pos e))
+	 (ref-set action :move))
+       nil))))
 
 (defn mouse-released [e]
   (dosync
