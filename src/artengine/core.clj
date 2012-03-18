@@ -155,6 +155,17 @@
    (if (= @action :select)
      (draw-rect g @sel-start @old-mp))))
 
+(defn do-delete []
+  (dosync
+   (if (= @mode :mesh)
+     (do
+       (alter objs delete @selected-objs @selected-ps)
+       (ref-set selected-ps {}))
+     (do
+       (alter objs delete-objs @selected-objs)
+       (ref-set selected-ps {})
+       (ref-set selected-objs #{})))))
+
 (defn key-pressed [e]
   (let [key (.getKeyCode e)]
     (condp = key
@@ -171,6 +182,9 @@
 	(dosync				;todo holding e, more than one new point
 	 (ref-set action :extend)
 	 (@repaint)))
+      KeyEvent/VK_DELETE
+      (do (do-delete)
+	  (@repaint))
       KeyEvent/VK_G
       (dosync
        (ref-set action :move))
@@ -193,7 +207,6 @@
 (defn mouse-moved [e]
   (handle-move (get-pos e)))
  
-
 (defn mouse-dragged [e]
   (handle-move (get-pos e)))
 

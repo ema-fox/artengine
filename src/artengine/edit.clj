@@ -48,6 +48,32 @@
 		 second)]
     (foo)))
 
+(defn fix-obj [{:keys [decos] :as x} xs]
+  (let [newdecos (filter #(get xs %) decos)]
+    (if (seq newdecos)
+      (assoc x :decos newdecos)
+      (dissoc x :decos))))
+
+(defn fix [xs]
+  (into {} (map (fn [[obj-i x]]
+		  [obj-i (fix-obj x xs)])
+		xs)))
+
+(defn delete-objs [xs sel-objs]
+  (fix (apply dissoc xs sel-objs)))
+
+(defn delete-ps [{:keys [ps ls] :as x} selis]
+  (assoc x
+    :ps (apply dissoc ps selis)
+    :ls (filter #(not (contains? selis %)) ls)))
+
+(defn delete [xs sel-objs selis]
+  (let [foo (map (fn [obj-i]
+		   [obj-i (delete-ps (get xs obj-i) (get selis obj-i #{}))])
+		 sel-objs)]
+    (delete-objs (into xs foo)
+		 (map first (filter #(empty? (:ps (second %))) foo)))))
+
 (defn move-ps [{:keys [ps] :as x} movement selis]
   (assoc x :ps (into ps (map (fn [i]
 			       [i (plus (get ps i) movement)])

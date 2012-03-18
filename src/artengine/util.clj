@@ -112,6 +112,10 @@
 (defn get-pos [e]
   [(.getX e) (.getY e)])
 
+(defn dbg [x]
+  (prn x)
+  x)
+
 (defn start [renderfn key-pressed mouse-released mouse-pressed mouse-moved mouse-dragged]
   (let [panel (doto (proxy [JPanel] []
 		      (paint [g] (renderfn g)))
