@@ -1,6 +1,9 @@
 (ns artengine.edit
   (:use [artengine.util]))
 
+(defn get-new-key [xs]
+  (inc (apply max (map first xs))))
+
 (defn get-ilines [{:keys [ps ls closed]}]
   (map vector
        ls
@@ -27,7 +30,7 @@
 	       pb (get ps ib)]
 	   [(line-p-distance pa pb p)
 	    (fn []
-	      (let [newi (inc (apply max ls))]
+	      (let [newi (get-new-key ps)]
 		(retfn [(assoc x
 			  :ps (assoc ps newi p)
 			  :ls (concat (take i ls) [newi] (drop i ls)))
@@ -51,13 +54,13 @@
 (defn append [{:keys [ps ls] :as x} p]
   (if (< (distance p (get ps (first ls))) 10)
     (assoc x :closed true)
-    (let [newi (inc (apply max (map first ps)))]
+    (let [newi (get-new-key ps)]
       (assoc x
 	:ls (conj (vec ls) newi)
 	:ps (assoc ps newi p)))))
 
 (defn new-obj [xs p]
-  (let [newi (inc (apply max (map first xs)))]
+  (let [newi (get-new-key xs)]
     [(assoc xs newi {:ps {1 p} :ls [1] :closed false :line-color [0 0 0]})
      newi]))
 
