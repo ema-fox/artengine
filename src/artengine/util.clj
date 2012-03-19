@@ -3,7 +3,7 @@
            [java.awt.image BufferedImage]
            [java.awt.event KeyListener KeyEvent MouseListener MouseMotionListener]
 	   [java.awt.geom GeneralPath]
-           [javax.swing JPanel JFrame]
+           [javax.swing JPanel JFrame JColorChooser]
            [javax.imageio ImageIO]))
 
 (def tau (* 2 Math/PI))
@@ -140,3 +140,7 @@
 		(.requestFocus))]
     (fn []
       (.repaint frame))))
+
+(defn get-color []
+  (let [color (JColorChooser/showDialog nil "" nil)]
+    [(.getRed color) (.getGreen color) (.getBlue color)]))

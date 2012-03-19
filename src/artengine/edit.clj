@@ -7,7 +7,7 @@
 (defn get-ilines [{:keys [ps ls closed]}]
   (map vector
        ls
-       (if closed
+       (if (and closed (< 1 (count ls)))
 	 (cons (last ls) (butlast ls))
 	 (rest ls))))
 
@@ -89,6 +89,11 @@
 		 sel-objs)]
     (delete-objs (into xs foo)
 		 (map first (filter #(empty? (:ps (second %))) foo)))))
+
+(defn set-objs-color [xs sel-objs color]
+  (into xs (map (fn [obj-i]
+		  [obj-i (assoc (get xs obj-i) :fill-color color)])
+		sel-objs)))
 
 (defn move-ps [{:keys [ps] :as x} movement selis]
   (assoc x :ps (into ps (map (fn [i]

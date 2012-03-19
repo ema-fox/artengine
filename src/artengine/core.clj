@@ -170,6 +170,9 @@
        (ref-set selected-ps {})
        (ref-set selected-objs #{})))))
 
+(defn do-set-color []
+  (alter objs set-objs-color @selected-objs (get-color)))
+
 (defn key-pressed [e]
   (let [key (.getKeyCode e)]
     (condp = key
@@ -195,6 +198,10 @@
        (if (= @action :normal)
 	 (ref-set action :new-obj)
 	 (ref-set action :normal)))
+      KeyEvent/VK_C
+      (dosync
+       (do-set-color)
+       (@repaint))
       KeyEvent/VK_G
       (dosync
        (ref-set action :move))
@@ -275,7 +282,8 @@
 (defn do-new-obj [p]
   (let [[xs obj-i] (new-obj @objs p)]
     (ref-set objs xs)
-    (ref-set selected-objs #{obj-i})))
+    (ref-set selected-objs #{obj-i})
+    (ref-set stack (cons obj-i @stack))))
 
 (defn do-append [p]
   (let [obj-i (first @selected-objs)
