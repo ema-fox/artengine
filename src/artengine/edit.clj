@@ -71,8 +71,8 @@
       (dissoc x :decos))))
 
 (defn fix [xs]
-  (into {} (map (fn [[obj-i x]]
-		  [obj-i (fix-obj x xs)])
+  (into {} (mapmap (fn [obj-i x]
+		     (fix-obj x xs))
 		xs)))
 
 (defn delete-objs [xs sel-objs]
@@ -84,16 +84,25 @@
     :ls (filter #(not (contains? selis %)) ls)))
 
 (defn delete [xs sel-objs selis]
-  (let [foo (map (fn [obj-i]
-		   [obj-i (delete-ps (get xs obj-i) (get selis obj-i #{}))])
-		 sel-objs)]
+  (let [foo (mapmap (fn [obj-i x]
+		      (delete-ps x (get selis obj-i #{})))
+		 (select-keys xs sel-objs))]
     (delete-objs (into xs foo)
 		 (map first (filter #(empty? (:ps (second %))) foo)))))
 
 (defn set-objs-color [xs sel-objs color]
-  (into xs (map (fn [obj-i]
-		  [obj-i (assoc (get xs obj-i) :fill-color color)])
-		sel-objs)))
+  (into xs (mapmap (fn [obj-i x]
+		     (assoc x :fill-color color))
+		(select-keys xs sel-objs))))
+
+(defn deco-obj [x obj-is]
+  (assoc x
+    :decos (into (:decos x) obj-is)))
+
+(defn deco-objs [xs obj-isa obj-isb]
+  (into xs (mapmap (fn [obj-i x]
+		     (deco-obj x obj-isb))
+		   (select-keys xs obj-isa))))
 
 (defn move-ps [{:keys [ps] :as x} movement selis]
   (assoc x :ps (into ps (map (fn [i]
@@ -101,10 +110,9 @@
 			     selis))))
 
 (defn move [xs sel-objs selis movement]
-  (into xs
-	(map (fn [obj-i]
-	       [obj-i (move-ps (get xs obj-i) movement (get selis obj-i))])
-	     sel-objs)))
+  (into xs (mapmap (fn [obj-i x]
+		     (move-ps x movement (get selis obj-i)))
+	     (select-keys xs sel-objs))))
 
 (defn move-obj [x movement]
   (assoc x
@@ -112,5 +120,6 @@
 		   [i (plus p movement)]))))
 
 (defn move-objs [xs sel-objs movement]
-  (into xs (for [obj-i sel-objs]
-	     [obj-i (move-obj (get xs obj-i) movement)])))
+  (into xs (mapmap (fn [obj-i x]
+		     (move-obj x movement))
+		   (select-keys xs sel-objs))))

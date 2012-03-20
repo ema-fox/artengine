@@ -8,6 +8,11 @@
 
 (def tau (* 2 Math/PI))
 
+(defn mapmap [f m]
+  (map (fn [[key value]]
+	 [key (f key value)])
+       m))
+
 (defn fill-rect [g [p0 p1] [s0 s1]]
   (.fillRect g p0 p1 s0 s1))
 

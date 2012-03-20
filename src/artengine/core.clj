@@ -63,8 +63,9 @@
 	      @objs)]
      (doseq [[i x] xs]
        (paint g x xs))
-     (if-let [sel (get xs (first (select-obj xs @old-mp)))]
-       (paint g (dissoc (assoc sel :line-color [200 0 200]) :clip :fill-color) xs))
+     (if (= @mode :object)
+       (if-let [sel (get xs (first (select-obj xs @old-mp)))]
+	 (paint g (dissoc (assoc sel :line-color [200 0 200]) :clip :fill-color) xs)))
      (doseq [obj-i @selected-objs :let [x (get xs obj-i)]]
        (if (= @mode :mesh)
 	 (paint-handles g x)
@@ -95,6 +96,11 @@
 (defn do-set-color []
   (alter objs set-objs-color @selected-objs (get-color)))
 
+(defn do-deco [] ;todo decoration of non closed objects
+  (let [a (filter #(:closed (get @objs %)) @selected-objs)
+	b (filter #(not (:closed (get @objs %))) @selected-objs)]
+    (alter objs deco-objs a b)))
+
 (defn key-pressed [e]
   (let [key (.getKeyCode e)]
     (condp = key
@@ -123,6 +129,10 @@
       KeyEvent/VK_C
       (dosync
        (do-set-color)
+       (@repaint))
+      KeyEvent/VK_D
+      (dosync
+       (do-deco)
        (@repaint))
       KeyEvent/VK_G
       (dosync
