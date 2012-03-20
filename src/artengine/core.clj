@@ -177,8 +177,8 @@
   ([pa pb]
      (dosync
       (if (= @mode :mesh)
-	(alter selected-ps rect-select @objs @selected-objs pa pb)
-	(alter selected-objs rect-select-obj @objs pa pb)))))
+	(ref-set selected-ps (rect-select @objs @selected-objs pa pb))
+	(ref-set selected-objs (rect-select-obj @objs pa pb))))))
 
 (defn mouse-pressed [e]
   (dosync

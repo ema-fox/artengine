@@ -51,23 +51,22 @@
       {(first seli) #{(second seli)}}
       {})))
 
-(defn rect-select [selis xs sel-objs pa pb]
+(defn rect-select [xs sel-objs pa pb]
   (->> (selectable-ps xs @selected-objs)
        (map (fn [[obj-i foos]]
 	      [obj-i (set (map second (filter (fn [[p i]]
 						(contains pa pb p))
 					      foos)))]))
-       (into {})
-       (merge-with (fn [a b] (into a b)) selis)))
+       (into {})))
 
 (defn obj-contains [pa pb x]
   (every? (fn [[i p]]
 	    (contains pa pb p))
 	  (:ps x)))
   
-(defn rect-select-obj [sel-obj-is xs pa pb]
+(defn rect-select-obj [xs pa pb]
   (->> xs
        (filter (fn [[obj-i x]]
 		 (obj-contains pa pb x)))
        (map first)
-       (into sel-obj-is)))
+       (into #{})))
