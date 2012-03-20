@@ -5,12 +5,6 @@
 
 (def stack (ref [1 2 3 4]))
 
-(def selected-objs (ref #{1 2}))
-
-(def selected-ps (ref {1 #{2}}))
-
-(def sel-start (ref nil))
-
 (defn obj-near?
   "determines if x is near or under p"
   [{:keys [closed] :as x} p xs]
@@ -52,7 +46,7 @@
       {})))
 
 (defn rect-select [xs sel-objs pa pb]
-  (->> (selectable-ps xs @selected-objs)
+  (->> (selectable-ps xs sel-objs)
        (map (fn [[obj-i foos]]
 	      [obj-i (set (map second (filter (fn [[p i]]
 						(contains pa pb p))

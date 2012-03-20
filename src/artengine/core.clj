@@ -27,6 +27,12 @@
 		   :closed true
 		   :clip 1}}))
 
+(def selected-objs (ref #{1 2}))
+
+(def selected-ps (ref {1 #{2}}))
+
+(def sel-start (ref nil))
+
 (def action (ref :normal))
 (def mode (ref :object))
 
