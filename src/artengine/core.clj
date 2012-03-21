@@ -67,7 +67,7 @@
 	      (let [obj-i (first @selected-objs)]
 		(assoc @objs obj-i (append (get @objs obj-i) @old-mp)))
 	      @objs)]
-     (doseq [[i x] xs]
+     (doseq [[i x] xs] ;todo paint in the order of the stack
        (paint g x xs))
      (if (= @mode :object)
        (if-let [sel (get xs (first (select-obj xs @old-mp)))]
@@ -140,6 +140,9 @@
       (dosync
        (do-deco)
        (@repaint))
+      KeyEvent/VK_F
+      (dosync
+       (ref-set action :clip))
       KeyEvent/VK_G
       (dosync
        (ref-set action :move))
@@ -169,7 +172,7 @@
   (let [[xs obj-i] (new-obj @objs p)]
     (ref-set objs xs)
     (ref-set selected-objs #{obj-i})
-    (ref-set stack (cons obj-i @stack))))
+    (alter stack conj obj-i)))
 
 (defn do-append [p]
   (let [obj-i (first @selected-objs)
@@ -183,6 +186,11 @@
    (let [[xs [obj-i i]] (extend-objs @objs @selected-objs p)]
      (ref-set objs xs)
      (ref-set selected-ps {obj-i #{i}}))))
+
+(defn do-clip [p]
+  (if-let [clip (first (select-obj @objs p))]
+    (alter objs set-clip @selected-objs clip))
+  (ref-set action :normal))
 
 (defn do-select
   ([mp]
@@ -223,6 +231,8 @@
      (cond
       (= @action :move)
       (ref-set action :normal)
+      (= @action :clip)
+      (do-clip (get-pos e))
       (= @action :select)
       (let [mp (get-pos e)]
 	(if (< (distance @sel-start mp) 5)

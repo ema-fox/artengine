@@ -123,3 +123,8 @@
   (into xs (mapmap (fn [obj-i x]
 		     (move-obj x movement))
 		   (select-keys xs sel-objs))))
+
+(defn set-clip [xs sel-objs clip]
+  (into xs (mapmap (fn [obj-i x]
+		     (assoc x :clip clip))
+		   (select-keys xs sel-objs))))
