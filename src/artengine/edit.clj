@@ -2,7 +2,9 @@
   (:use [artengine.util]))
 
 (defn get-new-key [xs]
-  (inc (apply max (map first xs))))
+  (if (first xs)
+    (inc (apply max (map first xs)))
+    1))
 
 (defn get-ilines [{:keys [ps ls closed]}]
   (map vector

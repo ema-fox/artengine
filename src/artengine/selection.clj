@@ -3,7 +3,7 @@
        [artengine.polygon]
        [artengine.edit]))
 
-(def stack (ref [1 2 3 4]))
+(def stack (ref []))
 
 (defn obj-near?
   "determines if x is near or under p"

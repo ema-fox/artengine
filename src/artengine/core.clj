@@ -8,28 +8,11 @@
 
 (def repaint (ref nil))
 
-(def objs (ref {1 {:ps {1 [10 10] 2 [10 130] 3 [130 130]}
-		   :ls [1 2 3]
-		   :fill-color [20 70 10]
-		   :closed true
-		   :decos [2 3]}
-		2 {:ps {1 [200 50] 2 [210 50] 3 [210 60]}
-		   :ls [1 2 3]
-		   :line-color [0 0 0]
-		   :closed false}
-		3 {:ps {1 [300 50] 2 [320 50] 3 [320 70]}
-		   :ls [1 2 3]
-		   :line-color [0 0 0]
-		   :closed false}
-		4 {:ps {1 [100 20] 2 [20 120] 3 [120 170]}
-		   :ls [1 2 3]
-		   :fill-color [200 150 50]
-		   :closed true
-		   :clip 1}}))
+(def objs (ref {}))
 
-(def selected-objs (ref #{1 2}))
+(def selected-objs (ref #{}))
 
-(def selected-ps (ref {1 #{2}}))
+(def selected-ps (ref {}))
 
 (def sel-start (ref nil))
 
