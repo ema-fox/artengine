@@ -67,7 +67,8 @@
 	      (let [obj-i (first @selected-objs)]
 		(assoc @objs obj-i (append (get @objs obj-i) @old-mp)))
 	      @objs)]
-     (doseq [[i x] xs] ;todo paint in the order of the stack
+     (doseq [i @stack
+	     :let [x (get xs i)]]
        (paint g x xs))
      (if (= @mode :object)
        (if-let [sel (get xs (first (select-obj xs @old-mp)))]
