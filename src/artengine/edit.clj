@@ -1,6 +1,12 @@
 (ns artengine.edit
   (:use [artengine.util]))
 
+(defmacro deftool [name args body]
+  `(defn ~name [~'xs ~'sel-objs ~@args]
+     (into ~'xs (mapmap (fn [~'obj-i ~'x]
+			~body)
+		      (select-keys ~'xs ~'sel-objs)))))
+
 (defn get-new-key [xs]
   (if (first xs)
     (inc (apply max (map first xs)))
@@ -92,56 +98,40 @@
     (delete-objs (into xs foo)
 		 (map first (filter #(empty? (:ps (second %))) foo)))))
 
-(defn delete-color [xs sel-objs]
-  (into xs (mapmap (fn [obj-i x]
-		     (dissoc x :fill-color))
-		   (select-keys xs sel-objs))))
+(deftool delete-color []
+  (dissoc x :fill-color))
 
-(defn set-objs-color [xs sel-objs color]
-  (into xs (mapmap (fn [obj-i x]
-		     (assoc x :fill-color color))
-		   (select-keys xs sel-objs))))
+(deftool set-objs-color [color]
+  (assoc x :fill-color color))
 
-(defn delete-border [xs sel-objs]
-  (into xs (mapmap (fn [obj-i x]
-		     (dissoc x :line-color))
-		   (select-keys xs sel-objs))))
+(deftool delete-border []
+  (dissoc x :line-color))
 
-(defn set-border-color [xs sel-objs color]
-  (into xs (mapmap (fn [obj-i x]
-		     (assoc x :line-color color))
-		   (select-keys xs sel-objs))))
+(deftool set-border-color [color]
+  (assoc x :line-color color))
 
 (defn deco-obj [x obj-is]
   (assoc x
     :decos (into (:decos x) obj-is)))
 
-(defn deco-objs [xs obj-isa obj-isb]
-  (into xs (mapmap (fn [obj-i x]
-		     (deco-obj x obj-isb))
-		   (select-keys xs obj-isa))))
+(deftool deco-objs [obj-isb]
+  (deco-obj x obj-isb))
 
 (defn move-ps [{:keys [ps] :as x} movement selis]
   (assoc x :ps (into ps (map (fn [i]
 			       [i (plus (get ps i) movement)])
 			     selis))))
 
-(defn move [xs sel-objs selis movement]
-  (into xs (mapmap (fn [obj-i x]
-		     (move-ps x movement (get selis obj-i)))
-	     (select-keys xs sel-objs))))
+(deftool move [selis movement]
+  (move-ps x movement (get selis obj-i)))
 
 (defn move-obj [x movement]
   (assoc x
     :ps (into {} (for [[i p] (:ps x)]
 		   [i (plus p movement)]))))
 
-(defn move-objs [xs sel-objs movement]
-  (into xs (mapmap (fn [obj-i x]
-		     (move-obj x movement))
-		   (select-keys xs sel-objs))))
+(deftool move-objs [movement]
+  (move-obj x movement))
 
-(defn set-clip [xs sel-objs clip]
-  (into xs (mapmap (fn [obj-i x]
-		     (assoc x :clip clip))
-		   (select-keys xs sel-objs))))
+(deftool set-clip [clip]
+  (assoc x :clip clip))

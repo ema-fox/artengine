@@ -75,15 +75,14 @@
      (draw-rect g @sel-start @old-mp))))
 
 (defn do-delete []
-  (dosync
-   (if (= @mode :mesh)
-     (do
-       (alter objs delete @selected-objs @selected-ps)
-       (ref-set selected-ps {}))
-     (do
-       (alter objs delete-objs @selected-objs)
-       (ref-set selected-ps {})
-       (ref-set selected-objs #{})))))
+  (if (= @mode :mesh)
+    (do
+      (alter objs delete @selected-objs @selected-ps)
+      (ref-set selected-ps {}))
+    (do
+      (alter objs delete-objs @selected-objs)
+      (ref-set selected-ps {})
+      (ref-set selected-objs #{})))))
 
 (defn do-delete-color []
   (alter objs delete-color @selected-objs))
@@ -105,51 +104,41 @@
 (defn key-pressed [e]
   (let [key (.getKeyCode e)
 	shift (not= 0 (bit-and InputEvent/SHIFT_MASK (.getModifiers e)))]
-    (condp = key
-	KeyEvent/VK_ESCAPE
-      (System/exit 0)
-      KeyEvent/VK_TAB
-      (dosync
+    (dosync
+     (condp = key
+	 KeyEvent/VK_ESCAPE
+       (System/exit 0)
+       KeyEvent/VK_TAB
        (ref-set mode (if (= @mode :object)
 		       :mesh
 		       :object))
-       (@repaint))
-      KeyEvent/VK_E
-      (if (= @mode :mesh) 		;todo handle append
-	(dosync				;todo holding e, more than one new point
-	 (ref-set action :extend)
-	 (@repaint)))
-      KeyEvent/VK_DELETE
-      (do (do-delete)
-	  (@repaint))
-      KeyEvent/VK_SPACE
-      (dosync
-       (ref-set mode :mesh)
-       (if (= @action :normal)
-	 (ref-set action :new-obj)
-	 (ref-set action :normal)))
-      KeyEvent/VK_C
-      (dosync
+       KeyEvent/VK_E
+       (if (= @mode :mesh) 		;todo handle append
+	 (ref-set action :extend))
+       KeyEvent/VK_DELETE
+       (do-delete)
+       KeyEvent/VK_SPACE
+       (do
+	 (ref-set mode :mesh)
+	 (if (= @action :normal)
+	   (ref-set action :new-obj)
+	   (ref-set action :normal)))
+       KeyEvent/VK_C
        (if shift
 	 (do-delete-color)
 	 (do-set-color))
-       (@repaint))
-      KeyEvent/VK_L
-      (dosync
+       KeyEvent/VK_L
        (if shift
 	 (do-delete-border)
-	 (do-set-border-color)))
-      KeyEvent/VK_D
-      (dosync
+	 (do-set-border-color))
+       KeyEvent/VK_D
        (do-deco)
-       (@repaint))
-      KeyEvent/VK_F
-      (dosync
-       (ref-set action :clip))
-      KeyEvent/VK_G
-      (dosync
-       (ref-set action :move))
-      nil)))
+       KeyEvent/VK_F
+       (ref-set action :clip)
+       KeyEvent/VK_G
+       (ref-set action :move)
+       nil))
+    (@repaint)))
 
 (defn do-move [movement]
   (dosync
