@@ -92,10 +92,25 @@
     (delete-objs (into xs foo)
 		 (map first (filter #(empty? (:ps (second %))) foo)))))
 
+(defn delete-color [xs sel-objs]
+  (into xs (mapmap (fn [obj-i x]
+		     (dissoc x :fill-color))
+		   (select-keys xs sel-objs))))
+
 (defn set-objs-color [xs sel-objs color]
   (into xs (mapmap (fn [obj-i x]
 		     (assoc x :fill-color color))
-		(select-keys xs sel-objs))))
+		   (select-keys xs sel-objs))))
+
+(defn delete-border [xs sel-objs]
+  (into xs (mapmap (fn [obj-i x]
+		     (dissoc x :line-color))
+		   (select-keys xs sel-objs))))
+
+(defn set-border-color [xs sel-objs color]
+  (into xs (mapmap (fn [obj-i x]
+		     (assoc x :line-color color))
+		   (select-keys xs sel-objs))))
 
 (defn deco-obj [x obj-is]
   (assoc x

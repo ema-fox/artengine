@@ -5,7 +5,7 @@
 	[artengine.selection]
 	[artengine.polygon]
 	[clojure.stacktrace])
-  (:import [java.awt.event KeyEvent MouseEvent]))
+  (:import [java.awt.event KeyEvent MouseEvent InputEvent]))
 
 (def repaint (ref nil))
 
@@ -85,8 +85,17 @@
        (ref-set selected-ps {})
        (ref-set selected-objs #{})))))
 
+(defn do-delete-color []
+  (alter objs delete-color @selected-objs))
+
 (defn do-set-color []
   (alter objs set-objs-color @selected-objs (get-color)))
+
+(defn do-delete-border []
+  (alter objs delete-border @selected-objs))
+
+(defn do-set-border-color []
+  (alter objs set-border-color @selected-objs (get-color)))
 
 (defn do-deco [] ;todo decoration of non closed objects
   (let [a (filter #(:closed (get @objs %)) @selected-objs)
@@ -94,7 +103,8 @@
     (alter objs deco-objs a b)))
 
 (defn key-pressed [e]
-  (let [key (.getKeyCode e)]
+  (let [key (.getKeyCode e)
+	shift (not= 0 (bit-and InputEvent/SHIFT_MASK (.getModifiers e)))]
     (condp = key
 	KeyEvent/VK_ESCAPE
       (System/exit 0)
@@ -120,8 +130,15 @@
 	 (ref-set action :normal)))
       KeyEvent/VK_C
       (dosync
-       (do-set-color)
+       (if shift
+	 (do-delete-color)
+	 (do-set-color))
        (@repaint))
+      KeyEvent/VK_L
+      (dosync
+       (if shift
+	 (do-delete-border)
+	 (do-set-border-color)))
       KeyEvent/VK_D
       (dosync
        (do-deco)
