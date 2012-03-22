@@ -26,7 +26,7 @@
   (fill-rect g (minus p [1 1]) [3 3]))
 
 (defn paint-handles [g {:keys [ps ls]}]
-  (set-color g [0 0 0])
+  (set-color g [0 0 0 255])
   (doseq [i ls]
     (paint-handle g (get ps i))))
 
@@ -42,7 +42,7 @@
 
 (defn render [g]
   (dosync
-   (set-color g [127 127 127])
+   (set-color g [127 127 127 255])
    (fill-rect g [0 0] [1000 1000])
    (set-stroke-width g 1)
    (let [xs (condp = @action
@@ -57,18 +57,18 @@
        (paint g x xs))
      (if (= @mode :object)
        (if-let [sel (get xs (first (select-obj xs @old-mp)))]
-	 (paint g (dissoc (assoc sel :line-color [200 0 200]) :clip :fill-color) xs)))
+	 (paint g (dissoc (assoc sel :line-color [200 0 200 255]) :clip :fill-color) xs)))
      (doseq [obj-i @selected-objs :let [x (get xs obj-i)]]
        (if (= @mode :mesh)
 	 (paint-handles g x)
-	 (paint g (dissoc (assoc x :line-color [250 200 0]) :clip :fill-color) xs)))
-     (set-color g [250 200 0])
+	 (paint g (dissoc (assoc x :line-color [250 200 0 255]) :clip :fill-color) xs)))
+     (set-color g [250 200 0 255])
      (doseq [[obj-i is] @selected-ps
 	     i is
 	     :let [p (get (:ps (get xs obj-i)) i)]]
        (when (and (= @mode :mesh) (some #{obj-i} @selected-objs))
 	 (paint-handle g p))))
-   (set-color g [0 0 0])
+   (set-color g [0 0 0 255])
    (.drawString g (str @mode) 10 20)
    (.drawString g (str @action) 10 40)
    (if (= @action :select)

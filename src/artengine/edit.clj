@@ -63,7 +63,7 @@
 
 (defn new-obj [xs p]
   (let [newi (get-new-key xs)]
-    [(assoc xs newi {:ps {1 p} :ls [1] :closed false :line-color [0 0 0]})
+    [(assoc xs newi {:ps {1 p} :ls [1] :closed false :line-color [0 0 0 255]})
      newi]))
 
 (defn fix-obj [{:keys [decos] :as x} xs]

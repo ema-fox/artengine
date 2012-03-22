@@ -97,8 +97,8 @@
 (defn shape-contains [shape [p0 p1]]
   (.contains shape p0 p1))
 
-(defn set-color [g [c0 c1 c2]]
-  (.setColor g (Color. c0 c1 c2)))
+(defn set-color [g [c0 c1 c2 a]]
+  (.setColor g (Color. c0 c1 c2 a)))
 
 (defn set-stroke-width [g width]
   (.setStroke g (BasicStroke. width)))
@@ -151,4 +151,4 @@
 
 (defn get-color []
   (let [color (JColorChooser/showDialog nil "" nil)]
-    [(.getRed color) (.getGreen color) (.getBlue color)]))
+    [(.getRed color) (.getGreen color) (.getBlue color) (.getAlpha color)]))
