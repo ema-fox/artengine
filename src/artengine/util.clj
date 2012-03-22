@@ -1,5 +1,5 @@
 (ns artengine.util
-  (:import [java.awt Color RenderingHints Polygon]
+  (:import [java.awt Color RenderingHints Polygon BasicStroke]
            [java.awt.image BufferedImage]
            [java.awt.event KeyListener KeyEvent MouseListener MouseMotionListener]
 	   [java.awt.geom GeneralPath]
@@ -99,6 +99,9 @@
 
 (defn set-color [g [c0 c1 c2]]
   (.setColor g (Color. c0 c1 c2)))
+
+(defn set-stroke-width [g width]
+  (.setStroke g (BasicStroke. width)))
 
 (defn draw-rect [g pa pb]
   (let [[[pd0 pd1]

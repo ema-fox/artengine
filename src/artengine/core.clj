@@ -1,4 +1,5 @@
 (ns artengine.core
+  (:gen-class)
   (:use [artengine.util]
 	[artengine.edit]
 	[artengine.selection]
@@ -43,6 +44,7 @@
   (dosync
    (set-color g [127 127 127])
    (fill-rect g [0 0] [1000 1000])
+   (set-stroke-width g 1)
    (let [xs (condp = @action
 		:extend
 	      (first (extend-objs @objs @selected-objs @old-mp))
