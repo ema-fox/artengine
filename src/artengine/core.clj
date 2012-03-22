@@ -82,19 +82,21 @@
     (do
       (alter objs delete-objs @selected-objs)
       (ref-set selected-ps {})
-      (ref-set selected-objs #{})))))
+      (ref-set selected-objs #{}))))
 
 (defn do-delete-color []
   (alter objs delete-color @selected-objs))
 
 (defn do-set-color []
-  (alter objs set-objs-color @selected-objs (get-color)))
+  (if-let [color (get-color)]
+    (alter objs set-objs-color @selected-objs color)))
 
 (defn do-delete-border []
   (alter objs delete-border @selected-objs))
 
 (defn do-set-border-color []
-  (alter objs set-border-color @selected-objs (get-color)))
+  (if-let [color (get-color)]
+    (alter objs set-border-color @selected-objs color)))
 
 (defn do-deco [] ;todo decoration of non closed objects
   (let [a (filter #(:closed (get @objs %)) @selected-objs)

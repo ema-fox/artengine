@@ -150,5 +150,5 @@
       (.repaint frame))))
 
 (defn get-color []
-  (let [color (JColorChooser/showDialog nil "" nil)]
+  (if-let [color (JColorChooser/showDialog nil "" nil)]
     [(.getRed color) (.getGreen color) (.getBlue color) (.getAlpha color)]))
