@@ -194,7 +194,11 @@
   ([mp shift]
      (dosync
       (if (= @mode :mesh)
-	(ref-set selected-ps (select-ps @objs @selected-objs mp))
+	(ref-set selected-ps (merge-with xunion
+					 (select-ps @objs @selected-objs mp)
+					 (if shift
+					   @selected-ps
+					   #{})))
 	(ref-set selected-objs (xunion
 				(if shift
 				  @selected-objs
@@ -203,7 +207,11 @@
   ([pa pb shift]
      (dosync
       (if (= @mode :mesh)
-	(ref-set selected-ps (rect-select @objs @selected-objs pa pb))
+	(ref-set selected-ps (merge-with union
+					 (rect-select @objs @selected-objs pa pb)
+					 (if shift
+					   @selected-ps
+					   #{})))
 	(ref-set selected-objs (union
 				(if shift
 				  @selected-objs
