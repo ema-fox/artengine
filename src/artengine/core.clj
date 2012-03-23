@@ -17,6 +17,7 @@
 (def selected-ps (ref {}))
 
 (def sel-start (ref nil))
+(def rot-p (ref nil))
 
 (def action (ref :normal))
 (def mode (ref :object))
@@ -59,6 +60,8 @@
    (let [xs (condp = @action
 		:extend
 	      (first (extend-objs @objs @selected-objs @old-mp))
+	      :rot
+	      (rotate-objs @objs @selected-objs @rot-p @old-mp)
 	      :append
 	      (let [obj-i (first @selected-objs)]
 		(assoc @objs obj-i (append (get @objs obj-i) @old-mp)))
@@ -194,6 +197,8 @@
        (do-down)
        KeyEvent/VK_UP
        (do-up)
+       KeyEvent/VK_R
+       (ref-set action :rot-p)
        KeyEvent/VK_G
        (ref-set action :move)
        nil))
@@ -299,6 +304,14 @@
    (condp = (.getButton e)
        MouseEvent/BUTTON1
      (cond
+      (= @action :rot-p)
+      (do
+	(ref-set rot-p (get-pos e))
+	(ref-set action :rot))
+      (= @action :rot)
+      (do
+	(alter objs rotate-objs @selected-objs @rot-p (get-pos e))
+	(ref-set action :normal))
       (= @action :move)
       (ref-set action :normal)
       (= @action :clip)

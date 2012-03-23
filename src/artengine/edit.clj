@@ -138,3 +138,16 @@
 
 (deftool set-clip [clip]
   (assoc x :clip clip))
+
+(defn rotate-ps [ps pa pb]
+  (let [foo (avec<-dvec (minus pb pa))
+	foops (mapmap (fn [i p]
+			(let [[a dist] (avec<-dvec (minus p pa))]
+			  [(+ a (first foo)) dist]))
+		      ps)]
+    (into {} (mapmap (fn [i p]
+		       (plus pa (dvec<-avec p)))
+		     foops))))
+
+(deftool rotate-objs [rot-p p]
+  (assoc x :ps (rotate-ps (:ps x) rot-p p)))
