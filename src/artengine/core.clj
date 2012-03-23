@@ -23,6 +23,16 @@
 
 (def old-mp (ref [0 0]))
 
+(defn save [path]
+  (dosync
+   (spit path {:objs @objs :stack @stack})))
+
+(defn open [path]
+  (dosync
+   (let [x (read-string (slurp path))]
+     (ref-set objs (:objs x))
+     (ref-set stack (:stack x)))))
+
 (defn paint-handle [g p]
   (fill-rect g (minus p [1 1]) [3 3]))
 
@@ -74,6 +84,15 @@
    (.drawString g (str @action) 10 40)
    (if (= @action :select)
      (draw-rect g @sel-start @old-mp))))
+
+(defn do-save []
+  (if-let [path (get-save-path)]
+    (save path)))
+
+(defn do-open []
+  (if-let [path (get-open-path)]
+    (open path)
+    (@repaint)))
 
 (defn do-delete []
   (if (= @mode :mesh)
@@ -128,11 +147,18 @@
 
 (defn key-pressed [e]
   (let [key (.getKeyCode e)
-	shift (not= 0 (bit-and InputEvent/SHIFT_MASK (.getModifiers e)))]
+	shift (not= 0 (bit-and InputEvent/SHIFT_MASK (.getModifiers e)))
+	ctrl (not= 0 (bit-and InputEvent/CTRL_MASK (.getModifiers e)))]
     (dosync
      (condp = key
 	 KeyEvent/VK_ESCAPE
        (System/exit 0)
+       KeyEvent/VK_S
+       (if ctrl
+	 (do-save))
+       KeyEvent/VK_O
+       (if ctrl
+	 (do-open))
        KeyEvent/VK_TAB
        (ref-set mode (if (= @mode :object)
 		       :mesh

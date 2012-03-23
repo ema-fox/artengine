@@ -3,7 +3,7 @@
            [java.awt.image BufferedImage]
            [java.awt.event KeyListener KeyEvent MouseListener MouseMotionListener]
 	   [java.awt.geom GeneralPath]
-           [javax.swing JPanel JFrame JColorChooser]
+           [javax.swing JPanel JFrame JColorChooser JFileChooser]
            [javax.imageio ImageIO]))
 
 (def tau (* 2 Math/PI))
@@ -152,3 +152,15 @@
 (defn get-color []
   (if-let [color (JColorChooser/showDialog nil "" nil)]
     [(.getRed color) (.getGreen color) (.getBlue color) (.getAlpha color)]))
+
+(defn get-save-path []
+  (let [filechooser (JFileChooser. "~/")
+	retval (.showSaveDialog filechooser nil)]
+    (if (= retval JFileChooser/APPROVE_OPTION)
+	(.getSelectedFile filechooser))))
+
+(defn get-open-path []
+  (let [filechooser (JFileChooser. "~/")
+	retval (.showOpenDialog filechooser nil)]
+    (if (= retval JFileChooser/APPROVE_OPTION)
+      (.getSelectedFile filechooser))))
