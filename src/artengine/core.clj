@@ -110,6 +110,22 @@
 (defn do-delete-clip []
   (alter objs delete-clip @selected-objs))
 
+(defn move-down [stack sel-objs]
+  (loop [s stack
+	 res []]
+    (if (< 1 (count s))
+      (let [[a b & d] s]
+	(if (and ((set sel-objs) b) (not ((set sel-objs) a)))
+	  (recur (cons a d) (conj res b))
+	  (recur (cons b d) (conj res a))))
+      (concat res s))))
+
+(defn do-down []
+  (alter stack move-down @selected-objs))
+
+(defn do-up []
+  (alter stack #(reverse (move-down (reverse %) @selected-objs))))
+
 (defn key-pressed [e]
   (let [key (.getKeyCode e)
 	shift (not= 0 (bit-and InputEvent/SHIFT_MASK (.getModifiers e)))]
@@ -148,6 +164,10 @@
        (if shift
 	 (do-delete-clip)
 	 (ref-set action :clip))
+       KeyEvent/VK_DOWN
+       (do-down)
+       KeyEvent/VK_UP
+       (do-up)
        KeyEvent/VK_G
        (ref-set action :move)
        nil))
