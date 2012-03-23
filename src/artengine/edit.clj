@@ -133,5 +133,8 @@
 (deftool move-objs [movement]
   (move-obj x movement))
 
+(deftool delete-clip []
+  (dissoc x :clip))
+
 (deftool set-clip [clip]
   (assoc x :clip clip))

@@ -107,6 +107,9 @@
 	b (filter #(not (:closed (get @objs %))) @selected-objs)]
     (alter objs deco-objs a b)))
 
+(defn do-delete-clip []
+  (alter objs delete-clip @selected-objs))
+
 (defn key-pressed [e]
   (let [key (.getKeyCode e)
 	shift (not= 0 (bit-and InputEvent/SHIFT_MASK (.getModifiers e)))]
@@ -142,7 +145,9 @@
 	 (do-delete-deco)
 	 (do-deco))
        KeyEvent/VK_F
-       (ref-set action :clip)
+       (if shift
+	 (do-delete-clip)
+	 (ref-set action :clip))
        KeyEvent/VK_G
        (ref-set action :move)
        nil))
