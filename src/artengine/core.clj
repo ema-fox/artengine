@@ -301,6 +301,7 @@
        :extend
        (do
 	 (do-extend (get-pos e))
+	 (ref-set action-start (get-pos e))
 	 (ref-set action :move))
        nil))))
 
@@ -308,25 +309,26 @@
   (dosync
    (condp = (.getButton e)
        MouseEvent/BUTTON1
-     (cond
-      (= @action :rot)
-      (do
-	(alter objs rotate-objs @selected-objs @action-start (get-pos e))
-	(ref-set action :normal))
-      (= @action :move)
-      (do
-	(do-move (minus (get-pos e) @action-start))
-	(ref-set action :normal))
-      (= @action :clip)
-      (do-clip (get-pos e))
-      (= @action :select)
-      (let [mp (get-pos e)
-	    shift (not= 0 (bit-and InputEvent/SHIFT_MASK (.getModifiers e)))]
-	(if (< (distance @action-start mp) 5)
-	  (do-select mp shift)
-	  (do-select @action-start mp shift))
-	(ref-set action :normal)
-	(@repaint)))
+     (condp = @action
+	 :rot
+       (do
+	 (alter objs rotate-objs @selected-objs @action-start (get-pos e))
+	 (ref-set action :normal))
+       :move
+       (do
+	 (do-move (minus (get-pos e) @action-start))
+	 (ref-set action :normal))
+       :clip
+       (do-clip (get-pos e))
+       :select
+       (let [mp (get-pos e)
+	     shift (not= 0 (bit-and InputEvent/SHIFT_MASK (.getModifiers e)))]
+	 (if (< (distance @action-start mp) 5)
+	   (do-select mp shift)
+	   (do-select @action-start mp shift))
+	 (ref-set action :normal)
+	 (@repaint))
+       nil)
      MouseEvent/BUTTON3
      (ref-set action :normal)
      nil))
