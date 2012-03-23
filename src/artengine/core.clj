@@ -202,7 +202,9 @@
        KeyEvent/VK_UP
        (do-up)
        KeyEvent/VK_R
-       (ref-set action :rot-p)
+       (do
+	 (ref-set action :rot)
+	 (ref-set action-start @old-mp))
        KeyEvent/VK_G
        (do
 	 (ref-set action-start @old-mp)
@@ -307,10 +309,6 @@
    (condp = (.getButton e)
        MouseEvent/BUTTON1
      (cond
-      (= @action :rot-p)
-      (do
-	(ref-set action-start (get-pos e))
-	(ref-set action :rot))
       (= @action :rot)
       (do
 	(alter objs rotate-objs @selected-objs @action-start (get-pos e))
