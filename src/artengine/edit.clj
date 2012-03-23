@@ -1,5 +1,6 @@
 (ns artengine.edit
-  (:use [artengine.util]))
+  (:use [artengine.util]
+	[clojure.set]))
 
 (defmacro deftool [name args body]
   `(defn ~name [~'xs ~'sel-objs ~@args]
@@ -75,7 +76,7 @@
 (defn fix-obj [{:keys [decos] :as x} xs]
   (let [newdecos (filter #(get xs %) decos)]
     (if (seq newdecos)
-      (assoc x :decos newdecos)
+      (assoc x :decos (set newdecos))
       (dissoc x :decos))))
 
 (defn fix [xs]
@@ -110,12 +111,11 @@
 (deftool set-border-color [color]
   (assoc x :line-color color))
 
-(defn deco-obj [x obj-is]
-  (assoc x
-    :decos (into (:decos x) obj-is)))
+(deftool delete-objs-deco [obj-is]
+  (fix-obj (assoc x :decos (difference (:decos x #{}) obj-is)) xs))
 
-(deftool deco-objs [obj-isb]
-  (deco-obj x obj-isb))
+(deftool deco-objs [obj-is]
+  (assoc x :decos (union (:decos x #{}) (set obj-is))))
 
 (defn move-ps [{:keys [ps] :as x} movement selis]
   (assoc x :ps (into ps (map (fn [i]

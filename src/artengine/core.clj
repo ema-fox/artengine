@@ -99,6 +99,9 @@
   (if-let [color (get-color)]
     (alter objs set-border-color @selected-objs color)))
 
+(defn do-delete-deco []
+  (alter objs delete-objs-deco @selected-objs @selected-objs))
+
 (defn do-deco [] ;todo decoration of non closed objects
   (let [a (filter #(:closed (get @objs %)) @selected-objs)
 	b (filter #(not (:closed (get @objs %))) @selected-objs)]
@@ -135,7 +138,9 @@
 	 (do-delete-border)
 	 (do-set-border-color))
        KeyEvent/VK_D
-       (do-deco)
+       (if shift
+	 (do-delete-deco)
+	 (do-deco))
        KeyEvent/VK_F
        (ref-set action :clip)
        KeyEvent/VK_G
