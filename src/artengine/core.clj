@@ -16,8 +16,7 @@
 
 (def selected-ps (ref {}))
 
-(def sel-start (ref nil))
-(def rot-p (ref nil))
+(def action-start (ref nil))
 
 (def action (ref :normal))
 (def mode (ref :object))
@@ -60,8 +59,13 @@
    (let [xs (condp = @action
 		:extend
 	      (first (extend-objs @objs @selected-objs @old-mp))
+	      :move
+	      (let [movement (minus @old-mp @action-start)]
+		(if (= @mode :mesh)
+		  (move @objs @selected-objs @selected-ps movement)
+		  (move-objs @objs @selected-objs movement)))
 	      :rot
-	      (rotate-objs @objs @selected-objs @rot-p @old-mp)
+	      (rotate-objs @objs @selected-objs @action-start @old-mp)
 	      :append
 	      (let [obj-i (first @selected-objs)]
 		(assoc @objs obj-i (append (get @objs obj-i) @old-mp)))
@@ -86,7 +90,7 @@
    (.drawString g (str @mode) 10 20)
    (.drawString g (str @action) 10 40)
    (if (= @action :select)
-     (draw-rect g @sel-start @old-mp))))
+     (draw-rect g @action-start @old-mp))))
 
 (defn do-save []
   (if-let [path (get-save-path)]
@@ -200,7 +204,9 @@
        KeyEvent/VK_R
        (ref-set action :rot-p)
        KeyEvent/VK_G
-       (ref-set action :move)
+       (do
+	 (ref-set action-start @old-mp)
+	 (ref-set action :move))
        nil))
     (@repaint)))
 
@@ -211,12 +217,9 @@
      (alter objs move-objs @selected-objs movement))))
 
 (defn handle-move [mp]
-  (when (= @action :move)
-    (do-move (minus mp @old-mp)))
-  ;(when (not= @action :normal)
-    (@repaint);)
   (dosync
-   (ref-set old-mp mp)))
+   (ref-set old-mp mp))
+  (@repaint))
 
 (defn mouse-moved [e]
   (handle-move (get-pos e)))
@@ -286,7 +289,7 @@
 	 :normal
        (do
 	 (ref-set action :select)
-	 (ref-set sel-start (get-pos e)))
+	 (ref-set action-start (get-pos e)))
        :new-obj
        (do
 	 (do-new-obj (get-pos e))
@@ -306,24 +309,28 @@
      (cond
       (= @action :rot-p)
       (do
-	(ref-set rot-p (get-pos e))
+	(ref-set action-start (get-pos e))
 	(ref-set action :rot))
       (= @action :rot)
       (do
-	(alter objs rotate-objs @selected-objs @rot-p (get-pos e))
+	(alter objs rotate-objs @selected-objs @action-start (get-pos e))
 	(ref-set action :normal))
       (= @action :move)
-      (ref-set action :normal)
+      (do
+	(do-move (minus (get-pos e) @action-start))
+	(ref-set action :normal))
       (= @action :clip)
       (do-clip (get-pos e))
       (= @action :select)
       (let [mp (get-pos e)
 	    shift (not= 0 (bit-and InputEvent/SHIFT_MASK (.getModifiers e)))]
-	(if (< (distance @sel-start mp) 5)
+	(if (< (distance @action-start mp) 5)
 	  (do-select mp shift)
-	  (do-select @sel-start mp shift))
+	  (do-select @action-start mp shift))
 	(ref-set action :normal)
 	(@repaint)))
+     MouseEvent/BUTTON3
+     (ref-set action :normal)
      nil))
   (@repaint))
 
