@@ -4,6 +4,7 @@
 	[artengine.edit]
 	[artengine.selection]
 	[artengine.polygon]
+	[clojure.set]
 	[clojure.stacktrace])
   (:import [java.awt.event KeyEvent MouseEvent InputEvent]))
 
@@ -186,17 +187,28 @@
     (alter objs set-clip @selected-objs clip))
   (ref-set action :normal))
 
+(defn xunion [a b]
+  (difference (union a b) (intersection a b)))
+
 (defn do-select
-  ([mp]
+  ([mp shift]
      (dosync
       (if (= @mode :mesh)
-	(ref-set selected-ps (select @objs @selected-objs mp))
-	(ref-set selected-objs (select-obj @objs mp)))))
-  ([pa pb]
+	(ref-set selected-ps (select-ps @objs @selected-objs mp))
+	(ref-set selected-objs (xunion
+				(if shift
+				  @selected-objs
+				  #{})
+				(select-obj @objs mp))))))
+  ([pa pb shift]
      (dosync
       (if (= @mode :mesh)
 	(ref-set selected-ps (rect-select @objs @selected-objs pa pb))
-	(ref-set selected-objs (rect-select-obj @objs pa pb))))))
+	(ref-set selected-objs (union
+				(if shift
+				  @selected-objs
+				  #{})
+				(rect-select-obj @objs pa pb)))))))
 
 (defn mouse-pressed [e]
   (dosync
@@ -228,10 +240,11 @@
       (= @action :clip)
       (do-clip (get-pos e))
       (= @action :select)
-      (let [mp (get-pos e)]
+      (let [mp (get-pos e)
+	    shift (not= 0 (bit-and InputEvent/SHIFT_MASK (.getModifiers e)))]
 	(if (< (distance @sel-start mp) 5)
-	  (do-select mp)
-	  (do-select @sel-start (get-pos e)))
+	  (do-select mp shift)
+	  (do-select @sel-start mp shift))
 	(ref-set action :normal)
 	(@repaint)))
      nil))

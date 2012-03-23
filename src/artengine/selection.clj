@@ -31,7 +31,7 @@
     [obj-i (for [i (:ls (get xs obj-i))]
 	     [(get (:ps (get xs obj-i)) i) i])]))
 
-(defn select [xs sel-objs mp]
+(defn select-ps [xs sel-objs mp]
   (let [seli (->> (for [[obj-i foos] (selectable-ps xs sel-objs)
 			[p i] foos]
 		    [p [obj-i i]])
