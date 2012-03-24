@@ -23,6 +23,12 @@
 
 (def old-mp (ref [0 0]))
 
+(def key-actions (ref {}))
+
+(defmacro defkey [key & body]
+  `(dosync
+    (alter key-actions assoc ~key (fn [] ~@body))))
+
 (defn save [path]
   (dosync
    (spit path {:objs @objs :stack @stack})))
@@ -92,16 +98,18 @@
    (if (= @action :select)
      (draw-rect g @action-start @old-mp))))
 
-(defn do-save []
+(defkey [KeyEvent/VK_ESCAPE]
+  (System/exit 0))
+
+(defkey [KeyEvent/VK_S :ctrl]
   (if-let [path (get-save-path)]
     (save path)))
 
-(defn do-open []
+(defkey [KeyEvent/VK_O :ctrl]
   (if-let [path (get-open-path)]
-    (open path)
-    (@repaint)))
+    (open path)))
 
-(defn do-delete []
+(defkey [KeyEvent/VK_DELETE]
   (if (= @mode :mesh)
     (do
       (alter objs delete @selected-objs @selected-ps)
@@ -111,29 +119,32 @@
       (ref-set selected-ps {})
       (ref-set selected-objs #{}))))
 
-(defn do-delete-color []
+(defkey [KeyEvent/VK_C :shift]
   (alter objs delete-color @selected-objs))
 
-(defn do-set-color []
+(defkey [KeyEvent/VK_C]
   (if-let [color (get-color)]
     (alter objs set-objs-color @selected-objs color)))
 
-(defn do-delete-border []
+(defkey [KeyEvent/VK_L :shift]
   (alter objs delete-border @selected-objs))
 
-(defn do-set-border-color []
+(defkey [KeyEvent/VK_L]
   (if-let [color (get-color)]
     (alter objs set-border-color @selected-objs color)))
 
-(defn do-delete-deco []
+(defkey [KeyEvent/VK_D :shift]
   (alter objs delete-objs-deco @selected-objs @selected-objs))
 
-(defn do-deco [] ;todo decoration of non closed objects
+(defkey [KeyEvent/VK_D] ;todo decoration of non closed objects
   (let [a (filter #(:closed (get @objs %)) @selected-objs)
 	b (filter #(not (:closed (get @objs %))) @selected-objs)]
     (alter objs deco-objs a b)))
 
-(defn do-delete-clip []
+(defkey [KeyEvent/VK_F]
+  (ref-set action :clip))
+
+(defkey [KeyEvent/VK_F :shift]
   (alter objs delete-clip @selected-objs))
 
 (defn move-down [stack sel-objs]
@@ -146,70 +157,44 @@
 	  (recur (cons b d) (conj res a))))
       (concat res s))))
 
-(defn do-down []
+(defkey [KeyEvent/VK_DOWN]
   (alter stack move-down @selected-objs))
 
-(defn do-up []
+(defkey [KeyEvent/VK_UP]
   (alter stack #(reverse (move-down (reverse %) @selected-objs))))
+
+(defkey [KeyEvent/VK_TAB]
+  (ref-set mode (if (= @mode :object)
+		  :mesh
+		  :object)))
+
+(defkey [KeyEvent/VK_E]
+  (if (= @mode :mesh) 		;todo handle append
+    (ref-set action :extend)))
+
+(defkey [KeyEvent/VK_SPACE]
+  (ref-set mode :mesh)
+  (if (= @action :normal)
+    (ref-set action :new-obj)
+    (ref-set action :normal)))
+
+(defkey [KeyEvent/VK_R]
+  (ref-set action :rot)
+  (ref-set action-start @old-mp))
+
+(defkey [KeyEvent/VK_G]
+  (ref-set action-start @old-mp)
+  (ref-set action :move))
 
 (defn key-pressed [e]
   (let [key (.getKeyCode e)
 	shift (not= 0 (bit-and InputEvent/SHIFT_MASK (.getModifiers e)))
 	ctrl (not= 0 (bit-and InputEvent/CTRL_MASK (.getModifiers e)))]
     (dosync
-     (condp = key
-	 KeyEvent/VK_ESCAPE
-       (System/exit 0)
-       KeyEvent/VK_S
-       (if ctrl
-	 (do-save))
-       KeyEvent/VK_O
-       (if ctrl
-	 (do-open))
-       KeyEvent/VK_TAB
-       (ref-set mode (if (= @mode :object)
-		       :mesh
-		       :object))
-       KeyEvent/VK_E
-       (if (= @mode :mesh) 		;todo handle append
-	 (ref-set action :extend))
-       KeyEvent/VK_DELETE
-       (do-delete)
-       KeyEvent/VK_SPACE
-       (do
-	 (ref-set mode :mesh)
-	 (if (= @action :normal)
-	   (ref-set action :new-obj)
-	   (ref-set action :normal)))
-       KeyEvent/VK_C
-       (if shift
-	 (do-delete-color)
-	 (do-set-color))
-       KeyEvent/VK_L
-       (if shift
-	 (do-delete-border)
-	 (do-set-border-color))
-       KeyEvent/VK_D
-       (if shift
-	 (do-delete-deco)
-	 (do-deco))
-       KeyEvent/VK_F
-       (if shift
-	 (do-delete-clip)
-	 (ref-set action :clip))
-       KeyEvent/VK_DOWN
-       (do-down)
-       KeyEvent/VK_UP
-       (do-up)
-       KeyEvent/VK_R
-       (do
-	 (ref-set action :rot)
-	 (ref-set action-start @old-mp))
-       KeyEvent/VK_G
-       (do
-	 (ref-set action-start @old-mp)
-	 (ref-set action :move))
-       nil))
+     (if-let [f (get @key-actions (concat [key]
+					  (if shift [:shift] [])
+					  (if ctrl  [:ctrl]  [])))]
+       (f)))
     (@repaint)))
 
 (defn do-move [movement]
