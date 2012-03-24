@@ -5,8 +5,11 @@
 	[artengine.selection]
 	[artengine.polygon]
 	[clojure.set]
-	[clojure.stacktrace])
-  (:import [java.awt.event KeyEvent MouseEvent InputEvent]))
+	[clojure.stacktrace]
+	[clojure.java.io])
+  (:import [java.awt.event KeyEvent MouseEvent InputEvent]
+	   [javax.imageio ImageIO]
+	   [java.awt.image BufferedImage]))
 
 (def repaint (ref nil))
 
@@ -98,6 +101,12 @@
    (if (= @action :select)
      (draw-rect g @action-start @old-mp))))
 
+(defn export [path]
+  (let [img (BufferedImage. 1000 1000 BufferedImage/TYPE_INT_ARGB)
+	g (.getGraphics img)]
+    (render g)
+    (ImageIO/write img "png" (file path))))
+
 (defkey [KeyEvent/VK_ESCAPE]
   (System/exit 0))
 
@@ -108,6 +117,10 @@
 (defkey [KeyEvent/VK_O :ctrl]
   (if-let [path (get-open-path)]
     (open path)))
+
+(defkey [KeyEvent/VK_E :ctrl]
+  (if-let [path (get-save-path)]
+    (export path)))
 
 (defkey [KeyEvent/VK_DELETE]
   (if (= @mode :mesh)
