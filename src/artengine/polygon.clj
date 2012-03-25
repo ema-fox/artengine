@@ -1,8 +1,7 @@
 (ns artengine.polygon
-  (use [artengine.util]
-       [artengine.edit])
-  (import
-   [java.awt.geom Area]))
+  (:use [artengine.util]
+	[artengine.edit])
+  (:import [java.awt.geom Area]))
 
 (defn scramble [x]
   (mod (* 111 (+ 5 (bit-xor x (bit-shift-right x 2)))) 64))
@@ -24,7 +23,7 @@
 	dist (distance pa pb)
 	[n leftover] (loop [n 0
 			    dist2 dist]
-		       (let [deco (p-rand-nth decos (apply bit-xor n (concat pa pb)))]
+		       (let [deco (p-rand-nth decos (apply bit-xor n (concat pa pb)))] ;use ids
 			 (if (> dist2 (:length deco))
 			   (recur (inc n) (- dist2 (:length deco)))
 			   [n dist2])))]

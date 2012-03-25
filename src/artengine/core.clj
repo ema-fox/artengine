@@ -4,14 +4,14 @@
 	[artengine.edit]
 	[artengine.selection]
 	[artengine.polygon]
+	[seesaw.core :exclude [select action]]
+	[seesaw.chooser]
 	[clojure.set]
 	[clojure.stacktrace]
 	[clojure.java.io])
-  (:import [java.awt.event KeyEvent MouseEvent InputEvent]
+  (:import [java.awt.event KeyEvent MouseEvent]
 	   [javax.imageio ImageIO]
 	   [java.awt.image BufferedImage]))
-
-(def repaint (ref nil))
 
 (def objs (ref {}))
 
@@ -26,11 +26,13 @@
 (def action (ref :normal))
 (def mode (ref :object))
 
-(def draging (ref false))
+(def dragging (ref false))
 
 (def old-mp (ref [0 0]))
 
 (def key-actions (ref {}))
+
+(declare can)
 
 (defmacro defkey [key & body]
   `(dosync
@@ -64,10 +66,8 @@
       (.draw g (get-polygon x xs))
       (draw-lines g (map #(get ps %) ls)))))
 
-(defn render [g]
+(defn render [c g]
   (dosync
-   (set-color g [127 127 127 255])
-   (fill-rect g [0 0] [1000 1000])
    (.setTransform g (make-transformation @trans))
    (set-stroke-width g 1)
    (let [xs (condp = @action
@@ -117,15 +117,15 @@
   (System/exit 0))
 
 (defkey [KeyEvent/VK_S :ctrl]
-  (if-let [path (get-save-path)]
+  (if-let [path (choose-file :type :save)]
     (save path)))
 
 (defkey [KeyEvent/VK_O :ctrl]
-  (if-let [path (get-open-path)]
+  (if-let [path (choose-file)]
     (open path)))
 
 (defkey [KeyEvent/VK_E :ctrl]
-  (if-let [path (get-save-path)]
+  (if-let [path (choose-file :type "export")]
     (export path)))
 
 (defkey [KeyEvent/VK_DELETE]
@@ -206,15 +206,12 @@
   (ref-set action :move))
 
 (defn key-pressed [e]
-  (let [key (.getKeyCode e)
-	shift (not= 0 (bit-and InputEvent/SHIFT_MASK (.getModifiers e))) ;todo use isShiftDown
-	ctrl (not= 0 (bit-and InputEvent/CTRL_MASK (.getModifiers e)))]
-    (dosync
-     (if-let [f (get @key-actions (concat [key]
-					  (if shift [:shift] [])
-					  (if ctrl  [:ctrl]  [])))]
-       (f)))
-    (@repaint)))
+  (dosync
+   (if-let [f (get @key-actions (concat [(.getKeyCode e)]
+					(if (.isShiftDown e) [:shift] [])
+					(if (.isControlDown e) [:ctrl] [])))]
+     (f)))
+  (repaint! can))
 
 (defn do-move [movement]
   (dosync
@@ -227,10 +224,10 @@
 
 (defn handle-move [mp]
   (dosync
-   (if @draging
+   (if @dragging
      (do-drag (minus mp @old-mp))
      (ref-set old-mp mp)))
-  (@repaint))
+  (repaint! can))
 
 (defn mouse-moved [e]
   (handle-move (get-pos e @trans)))
@@ -316,7 +313,7 @@
 	   (ref-set action :move))
 	 nil)
        MouseEvent/BUTTON2
-       (ref-set draging true)
+       (ref-set dragging true)
        nil))))
 
 (defn mouse-released [e]
@@ -336,25 +333,33 @@
 	 :clip
 	 (do-clip p)
 	 :select
-	 (let [shift (not= 0 (bit-and InputEvent/SHIFT_MASK (.getModifiers e)))]
+	 (let [shift (.isShiftDown e)]
 	   (if (< (distance @action-start p) 5)
 	     (do-select p shift)
 	     (do-select @action-start p shift))
 	   (ref-set action :normal))
 	 nil)
        MouseEvent/BUTTON2
-       (ref-set draging false)
+       (ref-set dragging false)
        MouseEvent/BUTTON3
        (ref-set action :normal)
        nil))
-   (@repaint)))
+   (repaint! can)))
 
 (defn mouse-wheeled [e]
   (dosync
    (alter trans assoc 0 (* (get @trans 0) (Math/pow 0.9 (.getWheelRotation e)))))
-  (@repaint))
+  (repaint! can))
 
 (defn -main []
-  (dosync  
-   (ref-set repaint (start render key-pressed mouse-released mouse-pressed mouse-moved mouse-dragged mouse-wheeled)))
+  (def can (canvas :paint render :background "#808080"))
+  (def fr (frame :content can))
+  (listen fr :key-pressed key-pressed)
+  (.setFocusTraversalKeysEnabled fr false)
+  (listen can
+	  :mouse-pressed mouse-pressed
+	  :mouse-released mouse-released
+	  #{:mouse-moved :mouse-dragged} mouse-moved
+	  :mouse-wheel-moved mouse-wheeled)
+  (show! fr)
   nil)

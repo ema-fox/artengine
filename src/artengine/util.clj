@@ -1,10 +1,9 @@
 (ns artengine.util
-  (:import [java.awt Color RenderingHints Polygon BasicStroke]
-           [java.awt.image BufferedImage]
-           [java.awt.event KeyListener KeyEvent MouseListener MouseMotionListener MouseWheelListener]
-	   [java.awt.geom GeneralPath AffineTransform]
-           [javax.swing JPanel JFrame JColorChooser JFileChooser]
-           [javax.imageio ImageIO]))
+  (:use [seesaw.graphics]
+	[seesaw.chooser]
+	[seesaw.color])
+  (:import [java.awt BasicStroke]
+	   [java.awt.geom AffineTransform]))
 
 (def tau (* 2 Math/PI))
 
@@ -97,8 +96,8 @@
 (defn shape-contains [shape [p0 p1]]
   (.contains shape p0 p1))
 
-(defn set-color [g [c0 c1 c2 a]]
-  (.setColor g (Color. c0 c1 c2 a)))
+(defn set-color [g c]
+  (.setColor g (apply color c)))
 
 (defn set-stroke-width [g width]
   (.setStroke g (BasicStroke. width)))
@@ -109,7 +108,7 @@
     (.drawRect g pd0 pd1 (- pe0 pd0) (- pe1 pd1))))
 
 (defn make-polygon [ps]
-  (Polygon. (int-array (map first ps)) (int-array (map second ps)) (count ps)))
+  (apply polygon ps))
 
 (defn draw-polygon [g ps]
   (.draw g (make-polygon ps)))
@@ -122,7 +121,6 @@
     (.scale scale scale)
     (.translate t0 t1)))
 
-
 (defn get-pos
   ([e]
      [(.getX e) (.getY e)])
@@ -134,45 +132,6 @@
   (prn x)
   x)
 
-(defn start [renderfn key-pressed mouse-released mouse-pressed mouse-moved mouse-dragged mouse-wheeled]
-  (let [panel (doto (proxy [JPanel] []
-		      (paint [g] (renderfn g)))
-		(.addMouseListener (proxy [MouseListener] []
-				     (mouseClicked [e])
-				     (mouseEntered [e])
-				     (mouseExited [e])
-				     (mousePressed [e] (mouse-pressed e))
-				     (mouseReleased [e] (mouse-released e))))
-		(.addMouseMotionListener (proxy [MouseMotionListener] []
-					   (mouseDragged [e] (mouse-dragged e))
-					   (mouseMoved [e] (mouse-moved e))))
-		(.addMouseWheelListener (proxy [MouseWheelListener] []
-					  (mouseWheelMoved [e] (mouse-wheeled e)))))
-	frame (doto (new JFrame)
-		(.add panel) 
-		.pack 
-		.show
-		(.setFocusTraversalKeysEnabled false)
-		(.addKeyListener (proxy [KeyListener] []
-				   (keyPressed [e] (key-pressed e))
-				   (keyTyped [e])
-				   (keyReleased [e])))
-		(.requestFocus))]
-    (fn []
-      (.repaint frame))))
-
 (defn get-color []
-  (if-let [color (JColorChooser/showDialog nil "" nil)]
+  (if-let [color (choose-color)]
     [(.getRed color) (.getGreen color) (.getBlue color) (.getAlpha color)]))
-
-(defn get-save-path []
-  (let [filechooser (JFileChooser. "~/")
-	retval (.showSaveDialog filechooser nil)]
-    (if (= retval JFileChooser/APPROVE_OPTION)
-	(.getSelectedFile filechooser))))
-
-(defn get-open-path []
-  (let [filechooser (JFileChooser. "~/")
-	retval (.showOpenDialog filechooser nil)]
-    (if (= retval JFileChooser/APPROVE_OPTION)
-      (.getSelectedFile filechooser))))
