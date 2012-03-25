@@ -2,7 +2,7 @@
   (:import [java.awt Color RenderingHints Polygon BasicStroke]
            [java.awt.image BufferedImage]
            [java.awt.event KeyListener KeyEvent MouseListener MouseMotionListener]
-	   [java.awt.geom GeneralPath]
+	   [java.awt.geom GeneralPath AffineTransform]
            [javax.swing JPanel JFrame JColorChooser JFileChooser]
            [javax.imageio ImageIO]))
 
@@ -117,8 +117,17 @@
 (defn fill-polygon [g ps]
   (.fill g (make-polygon ps)))
 
-(defn get-pos [e]
-  [(.getX e) (.getY e)])
+(defn make-transformation [[scale [t0 t1]]]
+  (doto (AffineTransform.)
+    (.translate t0 t1)
+    (.scale scale scale)))
+
+(defn get-pos
+  ([e]
+     [(.getX e) (.getY e)])
+  ([e transformation]
+     (let [p (.inverseTransform (make-transformation transformation) (.getPoint e) nil)]
+       [(.getX p) (.getY p)])))
 
 (defn dbg [x]
   (prn x)
