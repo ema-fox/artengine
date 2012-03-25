@@ -1,7 +1,7 @@
 (ns artengine.util
   (:import [java.awt Color RenderingHints Polygon BasicStroke]
            [java.awt.image BufferedImage]
-           [java.awt.event KeyListener KeyEvent MouseListener MouseMotionListener]
+           [java.awt.event KeyListener KeyEvent MouseListener MouseMotionListener MouseWheelListener]
 	   [java.awt.geom GeneralPath AffineTransform]
            [javax.swing JPanel JFrame JColorChooser JFileChooser]
            [javax.imageio ImageIO]))
@@ -119,8 +119,9 @@
 
 (defn make-transformation [[scale [t0 t1]]]
   (doto (AffineTransform.)
-    (.translate t0 t1)
-    (.scale scale scale)))
+    (.scale scale scale)
+    (.translate t0 t1)))
+
 
 (defn get-pos
   ([e]
@@ -133,7 +134,7 @@
   (prn x)
   x)
 
-(defn start [renderfn key-pressed mouse-released mouse-pressed mouse-moved mouse-dragged]
+(defn start [renderfn key-pressed mouse-released mouse-pressed mouse-moved mouse-dragged mouse-wheeled]
   (let [panel (doto (proxy [JPanel] []
 		      (paint [g] (renderfn g)))
 		(.addMouseListener (proxy [MouseListener] []
@@ -144,7 +145,9 @@
 				     (mouseReleased [e] (mouse-released e))))
 		(.addMouseMotionListener (proxy [MouseMotionListener] []
 					   (mouseDragged [e] (mouse-dragged e))
-					   (mouseMoved [e] (mouse-moved e)))))
+					   (mouseMoved [e] (mouse-moved e))))
+		(.addMouseWheelListener (proxy [MouseWheelListener] []
+					  (mouseWheelMoved [e] (mouse-wheeled e)))))
 	frame (doto (new JFrame)
 		(.add panel) 
 		.pack 

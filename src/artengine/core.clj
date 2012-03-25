@@ -349,7 +349,12 @@
        nil))
    (@repaint)))
 
+(defn mouse-wheeled [e]
+  (dosync
+   (alter trans assoc 0 (* (get @trans 0) (Math/pow 0.9 (.getWheelRotation e)))))
+  (@repaint))
+
 (defn -main []
   (dosync  
-   (ref-set repaint (start render key-pressed mouse-released mouse-pressed mouse-moved mouse-dragged)))
+   (ref-set repaint (start render key-pressed mouse-released mouse-pressed mouse-moved mouse-dragged mouse-wheeled)))
   nil)
