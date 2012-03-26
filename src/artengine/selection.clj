@@ -23,30 +23,32 @@
 		  first
 		  first)]
     (if seli
-      #{seli}
-      #{})))
+      {seli #{}}
+      {})))
 
 (defn selectable-ps [xs obj-is]
-  (for [obj-i obj-is]
+  (for [obj-i (keys obj-is)]
     [obj-i (for [i (:ls (get xs obj-i))]
 	     [(get (:ps (get xs obj-i)) i) i])]))
 
-(defn select-ps [xs sel-objs mp]
-  (let [seli (->> (for [[obj-i foos] (selectable-ps xs sel-objs)
-			[p i] foos]
-		    [p [obj-i i]])
-		  (map (fn [[p i]]
-			 [(distance mp p) i]))
-		  (filter #(< (first %) 30))
-		  (sort-by first)
-		  first
-		  second)]
-    (if seli
-      {(first seli) #{(second seli)}}
-      {})))
+(defn select-ps [xs selection mp]
+  (let [[sel-obj sel-i] (->> (for [[obj-i foos] (selectable-ps xs selection)
+				   [p i] foos]
+			       [p [obj-i i]])
+			     (map (fn [[p i]]
+				    [(distance mp p) i]))
+			     (filter #(< (first %) 30))
+			     (sort-by first)
+			     first
+			     second)]
+    (into {} (mapmap (fn [obj-i _]
+		       (if (= sel-obj obj-i)
+			 #{sel-i}
+			 #{}))
+		     selection))))
 
-(defn rect-select [xs sel-objs pa pb]
-  (->> (selectable-ps xs sel-objs)
+(defn rect-select [xs selection pa pb]
+  (->> (selectable-ps xs selection)
        (map (fn [[obj-i foos]]
 	      [obj-i (set (map second (filter (fn [[p i]]
 						(contains pa pb p))
@@ -62,5 +64,5 @@
   (->> xs
        (filter (fn [[obj-i x]]
 		 (obj-contains pa pb x)))
-       (map first)
-       (into #{})))
+       (mapmap (fn [obj-i x] #{}))
+       (into {})))

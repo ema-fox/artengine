@@ -4,7 +4,7 @@
 	[artengine.edit]
 	[artengine.selection]
 	[artengine.polygon]
-	[seesaw.core :exclude [select action]]
+	[seesaw.core :exclude [select action selection]]
 	[seesaw.chooser]
 	[clojure.set]
 	[clojure.stacktrace]
@@ -15,9 +15,7 @@
 
 (def objs (ref {}))
 
-(def selected-objs (ref #{}))
-
-(def selected-ps (ref {}))
+(def selection (ref {}))
 
 (def trans (ref [1 [0 0]]))
 
@@ -72,33 +70,33 @@
    (set-stroke-width g 1)
    (let [xs (condp = @action
 		:extend
-	      (first (extend-objs @objs @selected-objs @old-mp))
+	      (first (extend-objs @objs (keys @selection) @old-mp))
 	      :move
 	      (let [movement (minus @old-mp @action-start)]
 		(if (= @mode :mesh)
-		  (move @objs @selected-objs @selected-ps movement)
-		  (move-objs @objs @selected-objs movement)))
+		  (move @objs @selection movement)
+		  (move-objs @objs @selection movement)))
 	      :rot
-	      (rotate-objs @objs @selected-objs @action-start @old-mp)
+	      (rotate-objs @objs @selection @action-start @old-mp)
 	      :append
-	      (let [obj-i (first @selected-objs)]
+	      (let [obj-i (first (keys @selection))]
 		(assoc @objs obj-i (append (get @objs obj-i) @old-mp)))
 	      @objs)]
      (doseq [i @stack
 	     :let [x (get xs i)]]
        (paint g x xs))
      (if (= @mode :object)
-       (if-let [sel (get xs (first (select-obj xs @old-mp)))]
+       (if-let [sel (get xs (first (keys (select-obj xs @old-mp))))]
 	 (paint g (dissoc (assoc sel :line-color [200 0 200 255]) :clip :fill-color) xs)))
-     (doseq [obj-i @selected-objs :let [x (get xs obj-i)]]
+     (doseq [obj-i (keys @selection) :let [x (get xs obj-i)]]
        (if (= @mode :mesh)
 	 (paint-handles g x)
 	 (paint g (dissoc (assoc x :line-color [250 200 0 255]) :clip :fill-color) xs)))
      (set-color g [250 200 0 255])
-     (doseq [[obj-i is] @selected-ps
+     (doseq [[obj-i is] @selection
 	     i is
 	     :let [p (get (:ps (get xs obj-i)) i)]]
-       (when (and (= @mode :mesh) (some #{obj-i} @selected-objs))
+       (when (and (= @mode :mesh) (some #{obj-i} (keys @selection)))
 	 (paint-handle g p))))
    (if (= @action :select)
      (draw-rect g @action-start @old-mp))
@@ -131,40 +129,39 @@
 (defkey [KeyEvent/VK_DELETE]
   (if (= @mode :mesh)
     (do
-      (alter objs delete @selected-objs @selected-ps)
-      (ref-set selected-ps {}))
+      (alter objs delete @selection)
+      (ref-set selection (into {} (mapmap (constantly #{}) @selection))))
     (do
-      (alter objs delete-objs @selected-objs)
-      (ref-set selected-ps {})
-      (ref-set selected-objs #{}))))
+      (alter objs delete-objs (keys @selection))
+      (ref-set selection {}))))
 
 (defkey [KeyEvent/VK_C :shift]
-  (alter objs delete-color @selected-objs))
+  (alter objs delete-color @selection))
 
 (defkey [KeyEvent/VK_C]
   (if-let [color (get-color)]
-    (alter objs set-objs-color @selected-objs color)))
+    (alter objs set-objs-color @selection color)))
 
 (defkey [KeyEvent/VK_L :shift]
-  (alter objs delete-border @selected-objs))
+  (alter objs delete-border @selection))
 
 (defkey [KeyEvent/VK_L]
   (if-let [color (get-color)]
-    (alter objs set-border-color @selected-objs color)))
+    (alter objs set-border-color @selection color)))
 
 (defkey [KeyEvent/VK_D :shift]
-  (alter objs delete-objs-deco @selected-objs @selected-objs))
+  (alter objs delete-objs-deco @selection (keys @selection)))
 
 (defkey [KeyEvent/VK_D] ;todo decoration of non closed objects
-  (let [a (filter #(:closed (get @objs %)) @selected-objs)
-	b (filter #(not (:closed (get @objs %))) @selected-objs)]
+  (let [a (filter #(:closed (get @objs (first %))) @selection)
+	b (filter #(not (:closed (get @objs %))) (keys @selection))]
     (alter objs deco-objs a b)))
 
 (defkey [KeyEvent/VK_F]
   (ref-set action :clip))
 
 (defkey [KeyEvent/VK_F :shift]
-  (alter objs delete-clip @selected-objs))
+  (alter objs delete-clip @selection))
 
 (defn move-down [stack sel-objs]
   (loop [s stack
@@ -177,10 +174,10 @@
       (concat res s))))
 
 (defkey [KeyEvent/VK_DOWN]
-  (alter stack move-down @selected-objs))
+  (alter stack move-down (keys @selection)))
 
 (defkey [KeyEvent/VK_UP]
-  (alter stack #(reverse (move-down (reverse %) @selected-objs))))
+  (alter stack #(reverse (move-down (reverse %) (keys @selection)))))
 
 (defkey [KeyEvent/VK_TAB]
   (ref-set mode (if (= @mode :object)
@@ -216,8 +213,8 @@
 (defn do-move [movement]
   (dosync
    (if (= @mode :mesh)
-     (alter objs move @selected-objs @selected-ps movement)
-     (alter objs move-objs @selected-objs movement))))
+     (alter objs move @selection movement)
+     (alter objs move-objs @selection movement))))
 
 (defn do-drag [movement]
   (alter trans assoc 1 (plus movement (get @trans 1))))
@@ -238,11 +235,11 @@
 (defn do-new-obj [p]
   (let [[xs obj-i] (new-obj @objs p)]
     (ref-set objs xs)
-    (ref-set selected-objs #{obj-i})
+    (ref-set selection {obj-i #{}})
     (alter stack conj obj-i)))
 
 (defn do-append [p]
-  (let [obj-i (first @selected-objs)
+  (let [obj-i (first (keys @selection))
 	x (append (get @objs obj-i) p)]
     (when (:closed x)
       (ref-set action :normal))
@@ -250,13 +247,17 @@
 
 (defn do-extend [p]
   (dosync
-   (let [[xs [obj-i i]] (extend-objs @objs @selected-objs p)]
+   (let [[xs [obj-i i]] (extend-objs @objs (keys @selection) p)]
      (ref-set objs xs)
-     (ref-set selected-ps {obj-i #{i}}))))
+     (ref-set selection (into {} (mapmap (fn [obj-ib _]
+					   (if (= obj-ib obj-i)
+					     #{i}
+					     #{}))
+					 @selection))))))
 
 (defn do-clip [p]
-  (if-let [clip (first (select-obj @objs p))]
-    (alter objs set-clip @selected-objs clip))
+  (if-let [clip (first (keys (select-obj @objs p)))]
+    (alter objs set-clip @selection clip))
   (ref-set action :normal))
 
 (defn xunion [a b]
@@ -266,29 +267,29 @@
   ([mp shift]
      (dosync
       (if (= @mode :mesh)
-	(ref-set selected-ps (merge-with xunion
-					 (select-ps @objs @selected-objs mp)
-					 (if shift
-					   @selected-ps
-					   #{})))
-	(ref-set selected-objs (xunion
-				(if shift
-				  @selected-objs
-				  #{})
-				(select-obj @objs mp))))))
+	(ref-set selection (merge-with xunion
+				       (select-ps @objs @selection mp)
+				       (if shift
+					 @selection
+					 #{})))
+	(let [new-selction (select-obj @objs mp)]
+	  (ref-set selection (merge (apply dissoc new-selction (keys @selection))
+				    (if shift
+				      (apply dissoc @selection (keys new-selction))
+				      {})))))))
   ([pa pb shift]
      (dosync
       (if (= @mode :mesh)
-	(ref-set selected-ps (merge-with union
-					 (rect-select @objs @selected-objs pa pb)
+	(ref-set selection (merge-with union
+					 (rect-select @objs @selection pa pb)
 					 (if shift
-					   @selected-ps
+					   @selection
 					   #{})))
-	(ref-set selected-objs (union
-				(if shift
-				  @selected-objs
-				  #{})
-				(rect-select-obj @objs pa pb)))))))
+	(ref-set selection (merge
+			    (rect-select-obj @objs pa pb)
+			    (if shift
+			      @selection
+			      {})))))))
 
 (defn mouse-pressed [e]
   (dosync
@@ -324,7 +325,7 @@
        (condp = @action
 	   :rot
 	 (do
-	   (alter objs rotate-objs @selected-objs @action-start p)
+	   (alter objs rotate-objs @selection @action-start p)
 	   (ref-set action :normal))
 	 :move
 	 (do

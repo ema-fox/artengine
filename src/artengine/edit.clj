@@ -3,10 +3,11 @@
 	[clojure.set]))
 
 (defmacro deftool [name args body]
-  `(defn ~name [~'xs ~'sel-objs ~@args]
-     (into ~'xs (mapmap (fn [~'obj-i ~'x]
-			~body)
-		      (select-keys ~'xs ~'sel-objs)))))
+  `(defn ~name [~'xs ~'selection ~@args]
+     (into ~'xs (mapmap (fn [~'obj-i ~'selis]
+			  (let [~'x (get ~'xs ~'obj-i)]
+			    ~body))
+			~'selection))))
 
 (defn get-new-key [xs]
   (if (first xs)
@@ -92,10 +93,10 @@
     :ps (apply dissoc ps selis)
     :ls (filter #(not (contains? selis %)) ls)))
 
-(defn delete [xs sel-objs selis]
-  (let [foo (mapmap (fn [obj-i x]
-		      (delete-ps x (get selis obj-i #{})))
-		 (select-keys xs sel-objs))]
+(defn delete [xs selection] ;todo
+  (let [foo (mapmap (fn [obj-i selis]
+		      (delete-ps (get xs obj-i) selis))
+		    selection)]
     (delete-objs (into xs foo)
 		 (map first (filter #(empty? (:ps (second %))) foo)))))
 
@@ -112,7 +113,7 @@
   (assoc x :line-color color))
 
 (deftool delete-objs-deco [obj-is]
-  (fix-obj (assoc x :decos (difference (:decos x #{}) obj-is)) xs))
+  (fix-obj (assoc x :decos (difference (:decos x #{}) (set obj-is))) xs))
 
 (deftool deco-objs [obj-is]
   (assoc x :decos (union (:decos x #{}) (set obj-is))))
@@ -122,8 +123,8 @@
 			       [i (plus (get ps i) movement)])
 			     selis))))
 
-(deftool move [selis movement]
-  (move-ps x movement (get selis obj-i)))
+(deftool move [movement]
+  (move-ps x movement selis))
 
 (defn move-obj [x movement]
   (assoc x
