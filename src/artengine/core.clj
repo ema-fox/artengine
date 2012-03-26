@@ -5,12 +5,15 @@
 	[artengine.selection]
 	[artengine.polygon]
 	[seesaw.core :exclude [select action selection]]
+	[seesaw.graphics]
+	[seesaw.color]
 	[seesaw.chooser]
 	[clojure.set]
 	[clojure.stacktrace]
 	[clojure.java.io])
   (:import [java.awt.event KeyEvent MouseEvent]
 	   [javax.imageio ImageIO]
+	   [java.awt.geom Area]
 	   [java.awt.image BufferedImage]))
 
 (def objs (ref {}))
@@ -64,6 +67,20 @@
       (.draw g (get-polygon x xs))
       (draw-lines g (map #(get ps %) ls)))))
 
+(defn paint-sketch [g {:keys [ps size]}]
+  (let [[a b] (for [[i [p0 p1]] ps]
+		(Area. (circle p0 p1 size)))]
+    (when b
+      (.add a b)
+      (let [pa (get ps 1)
+	    pb (get ps 2)
+	    c (->> (direction pa pb)
+		   arc<-dir
+		   (+ (/ tau 4)))
+	    d (dvec<-avec [c size])]
+	    (.add a (Area. (polygon (plus pa d) (plus pb d) (minus pb d) (minus pa d))))))
+    (draw g a (style :background (color 0 0 0 30)))))
+
 (defn render [c g]
   (dosync
    (.setTransform g (make-transformation @trans))
@@ -84,7 +101,9 @@
 	      @objs)]
      (doseq [i @stack
 	     :let [x (get xs i)]]
-       (paint g x xs))
+       (if (= (:type x) :sketch)
+	 (paint-sketch g x)
+	 (paint g x xs)))
      (if (= @mode :object)
        (if-let [sel (get xs (first (keys (select-obj xs @old-mp))))]
 	 (paint g (dissoc (assoc sel :line-color [200 0 200 255]) :clip :fill-color) xs)))
@@ -108,7 +127,7 @@
 (defn export [path]
   (let [img (BufferedImage. 1000 1000 BufferedImage/TYPE_INT_ARGB)
 	g (.getGraphics img)]
-    (render g)
+    (render nil g)
     (ImageIO/write img "png" (file path))))
 
 (defkey [KeyEvent/VK_ESCAPE]
@@ -125,6 +144,9 @@
 (defkey [KeyEvent/VK_E :ctrl]
   (if-let [path (choose-file :type "export")]
     (export path)))
+
+(defkey [KeyEvent/VK_Q]
+  (ref-set action :new-sketch))
 
 (defkey [KeyEvent/VK_DELETE]
   (if (= @mode :mesh)
@@ -238,6 +260,15 @@
     (ref-set selection {obj-i #{}})
     (alter stack conj obj-i)))
 
+(defn do-new-sketch [p]
+  (let [[xs obj-i] (new-sketch @objs p)]
+    (ref-set objs xs)
+    (ref-set selection {obj-i #{}})
+    (alter stack conj obj-i)))
+
+(defn do-end-sketch [p]
+  (alter objs end-sketch @selection p))
+
 (defn do-append [p]
   (let [obj-i (first (keys @selection))
 	x (append (get @objs obj-i) p)]
@@ -259,6 +290,9 @@
   (if-let [clip (first (keys (select-obj @objs p)))]
     (alter objs set-clip @selection clip))
   (ref-set action :normal))
+
+(defn do-adjust-sketch [amount]
+  (alter objs adjust-sketch @selection amount))
 
 (defn xunion [a b]
   (difference (union a b) (intersection a b)))
@@ -307,6 +341,14 @@
 	   (ref-set action :append))
 	 :append
 	 (do-append p)
+	 :new-sketch
+	 (do
+	   (do-new-sketch p)
+	   (ref-set action :end-sketch))
+	 :end-sketch
+	 (do
+	   (do-end-sketch p)
+	   (ref-set action :normal))
 	 :extend
 	 (do
 	   (do-extend p)
@@ -349,7 +391,9 @@
 
 (defn mouse-wheeled [e]
   (dosync
-   (alter trans assoc 0 (* (get @trans 0) (Math/pow 0.9 (.getWheelRotation e)))))
+   (if (.isShiftDown e)
+     (do-adjust-sketch (.getWheelRotation e))
+     (alter trans assoc 0 (* (get @trans 0) (Math/pow 0.9 (.getWheelRotation e))))))
   (repaint! can))
 
 (defn -main []

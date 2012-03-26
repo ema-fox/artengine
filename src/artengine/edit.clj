@@ -74,6 +74,22 @@
     [(assoc xs newi {:ps {1 p} :ls [1] :closed false :line-color [0 0 0 255]})
      newi]))
 
+(defn new-sketch [xs p]
+  (let [newi (get-new-key xs)]
+    [(assoc xs newi {:ps {1 p} :ls [1] :type :sketch :size 20})
+     newi]))
+
+(deftool end-sketch [p]
+  (assoc x
+    :ps (assoc (:ps x) 2 p)
+    :ls (conj (:ls x) 2)))
+
+(deftool adjust-sketch [amount]
+  (if (= (:type x) :sketch)
+    (assoc x
+      :size (* (:size x) (Math/pow 0.9 amount)))
+    x))
+
 (defn fix-obj [{:keys [decos] :as x} xs]
   (let [newdecos (filter #(get xs %) decos)]
     (if (seq newdecos)
