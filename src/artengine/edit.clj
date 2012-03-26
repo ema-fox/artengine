@@ -140,11 +140,12 @@
 (deftool set-clip [clip]
   (if (and (not= obj-i clip)
 	   (loop [i clip]
-	     (if (:clip (get xs i))
-	       (if (= (:clip (get xs i)) obj-i)
-		 false
-		 (recur (:clip (get xs i))))
-	       true)))
+	     (let [clipi (:clip (get xs i))]
+	       (if clipi
+		 (if (= clipi obj-i)
+		   false
+		   (recur clipi))
+		 true))))
     (assoc x :clip clip)
     x))
 
