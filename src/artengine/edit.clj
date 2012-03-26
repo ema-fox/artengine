@@ -137,7 +137,15 @@
   (dissoc x :clip))
 
 (deftool set-clip [clip]
-  (assoc x :clip clip))
+  (if (and (not= obj-i clip)
+	   (loop [i clip]
+	     (if (:clip (get xs i))
+	       (if (= (:clip (get xs i)) obj-i)
+		 false
+		 (recur (:clip (get xs i))))
+	       true)))
+    (assoc x :clip clip)
+    x))
 
 (defn rotate-ps [ps pa pb]
   (let [foo (avec<-dvec (minus pb pa))
