@@ -31,7 +31,7 @@
   [(* pa0 pb0) (* pa1 pb1)])
 
 (defn direction [[pa0 pa1 :as pa] [pb0 pb1 :as pb]]
-  (if (not= pa pb)
+  (if (not= (map float pa) (map float pb))
     (let [d0 (- pb0 pa0)
 	  d1 (- pb1 pa1)
 	  dist (Math/sqrt (+ (* d0 d0) (* d1 d1)))]

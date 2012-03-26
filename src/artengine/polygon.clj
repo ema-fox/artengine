@@ -18,19 +18,19 @@
      :ps (for [[a dist] step1]
 	   (dvec<-avec [(+ a corrective-arc) dist]))}))
 
-(defn decorate-line [pa pb decos]
+(defn decorate-line [pa pb decos seed]
   (let [decos (map #(prepare-deco % (arc<-dir (direction pa pb))) decos)
 	dist (distance pa pb)
 	[n leftover] (loop [n 0
 			    dist2 dist]
-		       (let [deco (p-rand-nth decos (apply bit-xor n (concat pa pb)))] ;use ids
+		       (let [deco (p-rand-nth decos (bit-xor n seed))]
 			 (if (> dist2 (:length deco))
 			   (recur (inc n) (- dist2 (:length deco)))
 			   [n dist2])))]
     (loop [i 0
 	   dist2 dist
 	   res []]
-      (let [deco (p-rand-nth decos (apply bit-xor i (concat pa pb)))]
+      (let [deco (p-rand-nth decos (bit-xor i seed))]
 	(if (> dist2 (:length deco))
 	  (let [p (avg-point pb pa (/ dist2 dist))]
 	    (recur (inc i)
@@ -46,8 +46,8 @@
 (defn get-polygon [{:keys [ps ls decos clip] :as x} xs]
   (let [pol (make-polygon (if decos
 			    (let [deco-objs (for [i decos] (get xs i))]
-			      (apply concat (for [[pa pb] (get-lines x)]
-					      (decorate-line pa pb deco-objs))))
+			      (apply concat (for [[ia ib] (get-ilines x)]
+					      (decorate-line (get ps ia) (get ps ib) deco-objs (bit-xor ia ib)))))
 			    (map #(get ps %) ls)))]
     (if clip
       (clip-polygon pol (get-polygon (get xs clip) xs))
