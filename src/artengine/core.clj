@@ -82,6 +82,9 @@
 	    (.add a (Area. (polygon (plus pa d) (plus pb d) (minus pb d) (minus pa d))))))
     (draw g a (style :background (color 0 0 0 30)))))
 
+(defn paint-sel [g x color xs]
+  (paint g (dissoc (assoc x :line-color color :line-width 1) :clip :fill-color) xs))
+
 (defn render [c g]
   (dosync
    (set-stroke-width g 1)
@@ -107,17 +110,17 @@
 	 (paint g x xs)))
      (if (= @mode :object)
        (if-let [sel (get xs (first (keys (select-obj xs (transform-p @old-mp @trans)))))]
-	 (paint g (dissoc (assoc sel :line-color [200 0 200 255] :line-width 1) :clip :fill-color) xs)))
+	 (paint-sel g sel [200 0 200 255] xs)))
      (doseq [obj-i (keys @selection) :let [x (get xs obj-i)]]
        (if (= @mode :mesh)
 	 (paint-handles g x)
-	 (paint g (dissoc (assoc x :line-color [250 200 0 255] :line-width 1) :clip :fill-color) xs)))
+	 (paint-sel g x [250 200 0 255] xs)))
      (set-color g [250 200 0 255])
-     (doseq [[obj-i is] @selection
-	     i is
-	     :let [p (get (:ps (get xs obj-i)) i)]]
-       (when (and (= @mode :mesh) (some #{obj-i} (keys @selection)))
-	 (paint-handle g p))))
+     (when (= @mode :mesh)
+       (doseq [[obj-i is] @selection
+	       i is
+	       :let [p (get (:ps (get xs obj-i)) i)]]
+      	 (paint-handle g p))))
    (set-stroke-width g 1)
    (if (= @action :select)
      (draw-rect g (transform-p @action-start @trans) (transform-p @old-mp @trans)))
