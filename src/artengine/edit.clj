@@ -101,15 +101,15 @@
 		     (fix-obj x xs))
 		xs)))
 
-(defn delete-objs [xs sel-objs]
-  (fix (apply dissoc xs sel-objs)))
+(defn delete-objs [xs selection]
+  (fix (apply dissoc xs (keys selection))))
 
 (defn delete-ps [{:keys [ps ls] :as x} selis]
   (assoc x
     :ps (apply dissoc ps selis)
     :ls (filter #(not (contains? selis %)) ls)))
 
-(defn delete [xs selection] ;todo
+(defn delete [xs selection]
   (let [foo (mapmap (fn [obj-i selis]
 		      (delete-ps (get xs obj-i) selis))
 		    selection)]

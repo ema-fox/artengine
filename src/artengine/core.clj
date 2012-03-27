@@ -39,6 +39,9 @@
   `(dosync
     (alter key-actions assoc ~key (fn [] ~@body))))
 
+(defn act [f & args]
+  (apply alter objs f @selection args))
+
 (defn save [path]
   (dosync
    (spit path {:objs @objs :stack @stack})))
@@ -155,28 +158,28 @@
 (defkey [KeyEvent/VK_DELETE]
   (if (= @mode :mesh)
     (do
-      (alter objs delete @selection)
+      (act delete)
       (ref-set selection (into {} (mapmap (constantly #{}) @selection))))
     (do
-      (alter objs delete-objs (keys @selection))
+      (act delete-objs)
       (ref-set selection {}))))
 
 (defkey [KeyEvent/VK_C :shift]
-  (alter objs delete-color @selection))
+  (act delete-color))
 
 (defkey [KeyEvent/VK_C]
   (if-let [color (get-color)]
-    (alter objs set-objs-color @selection color)))
+    (act set-objs-color color)))
 
 (defkey [KeyEvent/VK_L :shift]
-  (alter objs delete-border @selection))
+  (act delete-border))
 
 (defkey [KeyEvent/VK_L]
   (if-let [color (get-color)]
-    (alter objs set-border-color @selection color)))
+    (act set-border-color color)))
 
 (defkey [KeyEvent/VK_D :shift]
-  (alter objs delete-objs-deco @selection (keys @selection)))
+  (act delete-objs-deco (keys @selection)))
 
 (defkey [KeyEvent/VK_D] ;todo decoration of non closed objects
   (let [a (filter #(:closed (get @objs (first %))) @selection)
@@ -187,7 +190,7 @@
   (ref-set action :clip))
 
 (defkey [KeyEvent/VK_F :shift]
-  (alter objs delete-clip @selection))
+  (act delete-clip))
 
 (defn move-down [stack sel-objs]
   (loop [s stack
@@ -239,8 +242,8 @@
 (defn do-move [movement]
   (dosync
    (if (= @mode :mesh)
-     (alter objs move @selection movement)
-     (alter objs move-objs @selection movement))))
+     (act move movement)
+     (act move-objs movement))))
 
 (defn do-drag [movement]
   (alter trans assoc 1 (plus movement (get @trans 1))))
@@ -271,7 +274,7 @@
     (alter stack conj obj-i)))
 
 (defn do-end-sketch [p]
-  (alter objs end-sketch @selection p))
+  (act end-sketch p))
 
 (defn do-append [p]
   (let [obj-i (first (keys @selection))
@@ -292,11 +295,11 @@
 
 (defn do-clip [p]
   (if-let [clip (first (keys (select-obj @objs p)))]
-    (alter objs set-clip @selection clip))
+    (act set-clip clip))
   (ref-set action :normal))
 
 (defn do-adjust-sketch [amount]
-  (alter objs adjust-sketch @selection amount))
+  (act adjust-sketch amount))
 
 (defn xunion [a b]
   (difference (union a b) (intersection a b)))
@@ -371,7 +374,7 @@
        (condp = @action
 	   :rot
 	 (do
-	   (alter objs rotate-objs @selection @action-start p)
+	   (act rotate-objs @action-start p)
 	   (ref-set action :normal))
 	 :move
 	 (do
