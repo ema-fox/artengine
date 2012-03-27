@@ -71,7 +71,7 @@
 
 (defn new-obj [xs p]
   (let [newi (get-new-key xs)]
-    [(assoc xs newi {:ps {1 p} :ls [1] :closed false :line-color [0 0 0 255]})
+    [(assoc xs newi {:ps {1 p} :ls [1] :closed false :line-color [0 0 0 255] :line-width 1})
      newi]))
 
 (defn new-sketch [xs p]
@@ -177,3 +177,13 @@
 
 (deftool rotate-objs [rot-p p]
   (assoc x :ps (rotate-ps (:ps x) rot-p p)))
+
+(defn transform [xs [scale :as transformation]]
+  (into {} (mapmap (fn [obj-i x]
+		     (assoc (if (= (:type x) :sketch)
+			      (assoc x :size (* scale (:size x)))
+			      (assoc x :line-width (* scale (:line-width x))))
+		       :ps (into {} (mapmap (fn [i p]
+					      (transform-p p transformation))
+					    (:ps x)))))
+		   xs)))

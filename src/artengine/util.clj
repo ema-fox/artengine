@@ -27,6 +27,9 @@
 (defn mult [[p0 p1] x]
   [(* p0 x) (* p1 x)])
 
+(defn div [[p0 p1] x]
+  [(/ p0 x) (/ p1 x)])
+
 (defn mult2 [[pa0 pa1] [pb0 pb1]]
   [(* pa0 pb0) (* pa1 pb1)])
 
@@ -80,6 +83,9 @@
 
 (defn dvec<-avec [[a dist]]
   (mult (dir<-arc a) dist))
+
+(defn transform-p [p [scale translate]]
+  (mult (plus p translate) scale))
 
 (defn pairs [xs]
   (map (fn [x y] [x y])

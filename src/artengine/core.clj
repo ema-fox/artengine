@@ -57,11 +57,12 @@
   (doseq [i ls]
     (paint-handle g (get ps i))))
 
-(defn paint [g {:keys [ps ls closed clip fill-color line-color] :as x} xs]
+(defn paint [g {:keys [ps ls closed clip fill-color line-color line-width] :as x} xs]
   (when fill-color
     (set-color g fill-color)
     (.fill g (get-polygon x xs)))
   (when line-color
+    (set-stroke-width g line-width)
     (set-color g line-color)
     (if closed
       (.draw g (get-polygon x xs))
@@ -83,43 +84,43 @@
 
 (defn render [c g]
   (dosync
-   (.setTransform g (make-transformation @trans))
    (set-stroke-width g 1)
-   (let [xs (condp = @action
-		:extend
-	      (first (extend-objs @objs (keys @selection) @old-mp))
-	      :move
-	      (let [movement (minus @old-mp @action-start)]
-		(if (= @mode :mesh)
-		  (move @objs @selection movement)
-		  (move-objs @objs @selection movement)))
-	      :rot
-	      (rotate-objs @objs @selection @action-start @old-mp)
-	      :append
-	      (let [obj-i (first (keys @selection))]
-		(assoc @objs obj-i (append (get @objs obj-i) @old-mp)))
-	      @objs)]
+   (let [xs (-> (condp = @action
+		    :extend
+		  (first (extend-objs @objs (keys @selection) @old-mp))
+		  :move
+		  (let [movement (minus @old-mp @action-start)]
+		    (if (= @mode :mesh)
+		      (move @objs @selection movement)
+		      (move-objs @objs @selection movement)))
+		  :rot
+		  (rotate-objs @objs @selection @action-start @old-mp)
+		  :append
+		  (let [obj-i (first (keys @selection))]
+		    (assoc @objs obj-i (append (get @objs obj-i) @old-mp)))
+		  @objs)
+		(transform @trans))]
      (doseq [i @stack
 	     :let [x (get xs i)]]
        (if (= (:type x) :sketch)
 	 (paint-sketch g x)
 	 (paint g x xs)))
      (if (= @mode :object)
-       (if-let [sel (get xs (first (keys (select-obj xs @old-mp))))]
-	 (paint g (dissoc (assoc sel :line-color [200 0 200 255]) :clip :fill-color) xs)))
+       (if-let [sel (get xs (first (keys (select-obj xs (transform-p @old-mp @trans)))))]
+	 (paint g (dissoc (assoc sel :line-color [200 0 200 255] :line-width 1) :clip :fill-color) xs)))
      (doseq [obj-i (keys @selection) :let [x (get xs obj-i)]]
        (if (= @mode :mesh)
 	 (paint-handles g x)
-	 (paint g (dissoc (assoc x :line-color [250 200 0 255]) :clip :fill-color) xs)))
+	 (paint g (dissoc (assoc x :line-color [250 200 0 255] :line-width 1) :clip :fill-color) xs)))
      (set-color g [250 200 0 255])
      (doseq [[obj-i is] @selection
 	     i is
 	     :let [p (get (:ps (get xs obj-i)) i)]]
        (when (and (= @mode :mesh) (some #{obj-i} (keys @selection)))
 	 (paint-handle g p))))
+   (set-stroke-width g 1)
    (if (= @action :select)
-     (draw-rect g @action-start @old-mp))
-   (.setTransform g (make-transformation [1 [0 0]]))
+     (draw-rect g (transform-p @action-start @trans) (transform-p @old-mp @trans)))
    (set-color g [0 0 0 255])
    (.drawString g (str @mode) 10 20)
    (.drawString g (str @action) 10 40)))
