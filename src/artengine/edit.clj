@@ -84,11 +84,12 @@
     :ps (assoc (:ps x) 2 p)
     :ls (conj (:ls x) 2)))
 
-(deftool adjust-sketch [amount]
+(deftool adjust-line [amount]
   (if (= (:type x) :sketch)
     (assoc x
       :size (* (:size x) (Math/pow 0.9 amount)))
-    x))
+    (assoc x
+      :line-width (* (:line-width x) (Math/pow 0.9 amount)))))
 
 (defn fix-obj [{:keys [decos] :as x} xs]
   (let [newdecos (filter #(get xs %) decos)]

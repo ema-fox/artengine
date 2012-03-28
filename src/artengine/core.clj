@@ -192,8 +192,8 @@
     (act set-clip clip))
   (ref-set action :normal))
 
-(defn do-adjust-sketch [amount]
-  (act adjust-sketch amount))
+(defn do-adjust-line [amount]
+  (act adjust-line amount))
 
 (defn xunion [a b]
   (difference (union a b) (intersection a b)))
@@ -293,7 +293,7 @@
 (defn mouse-wheeled [e]
   (dosync
    (if (.isShiftDown e)
-     (do-adjust-sketch (.getWheelRotation e))
+     (do-adjust-line (.getWheelRotation e))
      (alter trans assoc 0 (* (get @trans 0) (Math/pow 0.9 (.getWheelRotation e))))))
   (repaint! can))
 
