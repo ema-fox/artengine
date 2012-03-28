@@ -192,6 +192,11 @@
     (act set-clip clip))
   (ref-set action :normal))
 
+(defn do-pick-style [p]
+  (if-let [master (first (keys (select-obj @objs p)))]
+    (act pick-style master))
+  (ref-set action :normal))
+
 (defn do-adjust-line [amount]
   (act adjust-line amount))
 
@@ -276,6 +281,8 @@
 	   (ref-set action :normal))
 	 :clip
 	 (do-clip p)
+	 :pick-style
+	 (do-pick-style p)
 	 :select
 	 (let [shift (.isShiftDown e)]
 	   (if (< (distance @action-start p) 5)

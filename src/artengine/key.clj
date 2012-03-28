@@ -89,3 +89,6 @@
 (defkey [KeyEvent/VK_G]
   (ref-set action-start @old-mp)
   (ref-set action :move))
+
+(defkey [KeyEvent/VK_Y]
+  (ref-set action :pick-style))

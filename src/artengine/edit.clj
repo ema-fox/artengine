@@ -166,6 +166,10 @@
     (assoc x :clip clip)
     x))
 
+(deftool pick-style [masteri]
+  (let [master (get xs masteri)]
+    (merge x (select-keys master [:line-width :line-color :fill-color]))))
+
 (defn rotate-ps [ps pa pb]
   (let [foo (avec<-dvec (minus pb pa))
 	foops (mapmap (fn [i p]
