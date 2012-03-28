@@ -1,7 +1,5 @@
 (ns artengine.selection
-  (use [artengine util polygon edit]))
-
-(def stack (ref []))
+  (use [artengine util polygon edit var]))
 
 (defn obj-near?
   "determines if x is near or under p"
