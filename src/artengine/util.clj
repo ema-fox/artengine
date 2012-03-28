@@ -1,7 +1,5 @@
 (ns artengine.util
-  (:use [seesaw.graphics]
-	[seesaw.chooser]
-	[seesaw.color])
+  (:use [seesaw graphics chooser color])
   (:import [java.awt BasicStroke]
 	   [java.awt.geom AffineTransform]))
 

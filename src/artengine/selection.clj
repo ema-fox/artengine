@@ -1,7 +1,5 @@
 (ns artengine.selection
-  (use [artengine.util]
-       [artengine.polygon]
-       [artengine.edit]))
+  (use [artengine util polygon edit]))
 
 (def stack (ref []))
 

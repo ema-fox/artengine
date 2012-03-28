@@ -1,6 +1,5 @@
 (ns artengine.polygon
-  (:use [artengine.util]
-	[artengine.edit])
+  (:use [artengine util edit])
   (:import [java.awt.geom Area]))
 
 (defn scramble [x]

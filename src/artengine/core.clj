@@ -1,15 +1,8 @@
 (ns artengine.core
   (:gen-class)
-  (:use [artengine.util]
-	[artengine.edit]
-	[artengine.selection]
-	[artengine.polygon]
-	[seesaw.core :exclude [select action selection]]
-	[seesaw.graphics]
-	[seesaw.color]
-	[seesaw.chooser]
-	[clojure.set]
-	[clojure.stacktrace]
+  (:use [artengine util edit selection polygon]
+	[seesaw [core :exclude [select action selection]] graphics color chooser]
+	[clojure.set stacktrace]
 	[clojure.java.io])
   (:import [java.awt.event KeyEvent MouseEvent]
 	   [javax.imageio ImageIO]
