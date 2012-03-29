@@ -83,7 +83,7 @@
     (ref-set action :normal)))
 
 (defkey [KeyEvent/VK_R]
-  (ref-set action :rot)
+  (ref-set action :rot-p)
   (ref-set action-start @old-mp))
 
 (defkey [KeyEvent/VK_G]

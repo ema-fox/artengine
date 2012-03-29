@@ -73,7 +73,7 @@
 		      (move @objs @selection movement)
 		      (move-objs @objs @selection movement)))
 		  :rot
-		  (rotate-objs @objs @selection @action-start @old-mp)
+		  (rotate-objs @objs @selection @action-start @rot-p @old-mp)
 		  :append
 		  (let [obj-i (first (keys @selection))]
 		    (assoc @objs obj-i (append (get @objs obj-i) @old-mp)))
@@ -271,9 +271,13 @@
      (condp = (.getButton e)
 	 MouseEvent/BUTTON1
        (condp = @action
+	   :rot-p
+	 (do
+	   (ref-set rot-p p)
+	   (ref-set action :rot))
 	   :rot
 	 (do
-	   (act rotate-objs @action-start p)
+	   (act rotate-objs @action-start @rot-p p)
 	   (ref-set action :normal))
 	 :move
 	 (do

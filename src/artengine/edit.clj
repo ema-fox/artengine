@@ -170,18 +170,19 @@
   (let [master (get xs masteri)]
     (merge x (select-keys master [:line-width :line-color :fill-color]))))
 
-(defn rotate-ps [ps pa pb]
-  (let [foo (avec<-dvec (minus pb pa))
-	foops (mapmap (fn [i p]
+(defn rotate-ps [ps pa rot]
+  (let [foops (mapmap (fn [i p]
 			(let [[a dist] (avec<-dvec (minus p pa))]
-			  [(+ a (first foo)) dist]))
+			  [(+ a rot) dist]))
 		      ps)]
     (into {} (mapmap (fn [i p]
 		       (plus pa (dvec<-avec p)))
 		     foops))))
 
-(deftool rotate-objs [rot-p p]
-  (assoc x :ps (rotate-ps (:ps x) rot-p p)))
+(deftool rotate-objs [rot-p1 rot-p2 p]
+  (let [[a1 _] (avec<-dvec (minus rot-p2 rot-p1))
+	[a2 _] (avec<-dvec (minus p rot-p1))]
+    (assoc x :ps (rotate-ps (:ps x) rot-p1 (- a2 a1)))))
 
 (defn transform [xs [scale :as transformation]]
   (into {} (mapmap (fn [obj-i x]
