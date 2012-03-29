@@ -59,13 +59,13 @@
 	(if (and ((set sel-objs) b) (not ((set sel-objs) a)))
 	  (recur (cons a d) (conj res b))
 	  (recur (cons b d) (conj res a))))
-      (concat res s))))
+      (vec (concat res s)))))
 
 (defkey [KeyEvent/VK_DOWN]
   (alter stack move-down (keys @selection)))
 
 (defkey [KeyEvent/VK_UP]
-  (alter stack #(reverse (move-down (reverse %) (keys @selection)))))
+  (alter stack #(vec (reverse (move-down (reverse %) (keys @selection))))))
 
 (defkey [KeyEvent/VK_TAB]
   (ref-set mode (if (= @mode :object)
