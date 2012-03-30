@@ -61,8 +61,8 @@
 		 second)]
     (foo)))
 
-(defn append [{:keys [ps ls] :as x} p]
-  (if (< (distance p (get ps (first ls))) 10)
+(defn append [{:keys [ps ls] :as x} p dist]
+  (if (< (distance p (get ps (first ls))) dist)
     (assoc x :closed true)
     (let [newi (get-new-key ps)]
       (assoc x

@@ -61,6 +61,9 @@
 (defn paint-sel [g x color xs]
   (paint g (dissoc (assoc x :line-color color :line-width 1) :clip :fill-color) xs))
 
+(defn selection-dist []
+  (/ 20 (first @trans)))
+
 (defn render [c g]
   (dosync
    (set-stroke-width g 1)
@@ -76,7 +79,7 @@
 		  (rotate-objs @objs @selection @action-start @rot-p @old-mp)
 		  :append
 		  (let [obj-i (first (keys @selection))]
-		    (assoc @objs obj-i (append (get @objs obj-i) @old-mp)))
+		    (assoc @objs obj-i (append (get @objs obj-i) @old-mp (/ (selection-dist) 2))))
 		  @objs)
 		(transform @trans))]
      (doseq [i @stack
@@ -85,7 +88,7 @@
 	 (paint-sketch g x)
 	 (paint g x xs)))
      (if (= @mode :object)
-       (if-let [sel (get xs (first (keys (select-obj xs (transform-p @old-mp @trans)))))]
+       (if-let [sel (get xs (first (keys (select-obj xs (transform-p @old-mp @trans) 20))))]
 	 (paint-sel g sel [200 0 200 255] xs)))
      (doseq [obj-i (keys @selection) :let [x (get xs obj-i)]]
        (if (= @mode :mesh)
@@ -172,7 +175,7 @@
 
 (defn do-append [p]
   (let [obj-i (first (keys @selection))
-	x (append (get @objs obj-i) p)]
+	x (append (get @objs obj-i) p (/ (selection-dist) 2))]
     (when (:closed x)
       (ref-set action :normal))
     (alter objs assoc obj-i x)))
@@ -188,12 +191,12 @@
 					 @selection))))))
 
 (defn do-clip [p]
-  (if-let [clip (first (keys (select-obj @objs p)))]
+  (if-let [clip (first (keys (select-obj @objs p (selection-dist))))]
     (act set-clip clip))
   (ref-set action :normal))
 
 (defn do-pick-style [p]
-  (if-let [master (first (keys (select-obj @objs p)))]
+  (if-let [master (first (keys (select-obj @objs p (selection-dist))))]
     (act pick-style master))
   (ref-set action :normal))
 
@@ -208,11 +211,11 @@
      (dosync
       (if (= @mode :mesh)
 	(ref-set selection (merge-with xunion
-				       (select-ps @objs @selection mp)
+				       (select-ps @objs @selection mp (selection-dist))
 				       (if shift
 					 @selection
 					 #{})))
-	(let [new-selction (select-obj @objs mp)]
+	(let [new-selction (select-obj @objs mp (selection-dist))]
 	  (ref-set selection (merge (apply dissoc new-selction (keys @selection))
 				    (if shift
 				      (apply dissoc @selection (keys new-selction))

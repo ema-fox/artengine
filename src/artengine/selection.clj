@@ -3,19 +3,19 @@
 
 (defn obj-near?
   "determines if x is near or under p"
-  [{:keys [closed] :as x} p xs]
+  [{:keys [closed] :as x} p xs dist]
   (or (some (fn [[pa pb]]
-	      (< (line-p-distance pa pb p) 20))
+	      (< (line-p-distance pa pb p) dist))
 	    (get-lines x))
       (when closed
 	(shape-contains (get-polygon x xs) p))))
 
-(defn select-obj [xs mp]
+(defn select-obj [xs mp dist]
   (let [seli (->> (map (fn [obj-i]
 			 [obj-i (get xs obj-i)])
 		       (reverse @stack))
 		  (filter (fn [[obj-i x]]
-			    (obj-near? x mp xs)))
+			    (obj-near? x mp xs dist)))
 		  first
 		  first)]
     (if seli
@@ -27,13 +27,13 @@
     [obj-i (for [i (:ls (get xs obj-i))]
 	     [(get (:ps (get xs obj-i)) i) i])]))
 
-(defn select-ps [xs selection mp]
+(defn select-ps [xs selection mp dist]
   (let [[sel-obj sel-i] (->> (for [[obj-i foos] (selectable-ps xs selection)
 				   [p i] foos]
 			       [p [obj-i i]])
 			     (map (fn [[p i]]
 				    [(distance mp p) i]))
-			     (filter #(< (first %) 30))
+			     (filter #(< (first %) dist))
 			     (sort-by first)
 			     first
 			     second)]
