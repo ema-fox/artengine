@@ -64,7 +64,10 @@
 (defn p-on-line [pa pb pc]
   (let [delta (minus pb pa)
 	t (/ (apply + (mult2 (minus pc pa) delta))
-	     (apply + (mult2 delta delta)))]
+	     (let [foo (apply + (mult2 delta delta))]
+	       (if (== foo 0)
+		 1
+		 foo)))]
     (avg-point pb pa t)))
 
 (defn arc<-dir [[p0 p1]]

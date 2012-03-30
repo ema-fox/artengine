@@ -105,11 +105,11 @@
     :objs (into {} (mapmap (fn [obj-i x]
 			     (fix-obj x objs))
 			   objs))
-    :stack (vec (filter #(not (get objs %)) stack))))
+    :stack (vec (filter #(get objs %) stack))))
 
 (defn delete-objs [{:keys [stack objs] :as scene}  selection]
   (fix (assoc scene
-	 :objs (apply dissoc dissoc (keys selection)))))
+	 :objs (apply dissoc objs (keys selection)))))
 
 (defn delete-ps [{:keys [ps ls] :as x} selis]
   (assoc x

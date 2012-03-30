@@ -74,6 +74,10 @@
 		 (if (= @mode :mesh)
 		   (move @scene @selection movement)
 		   (move-objs @scene @selection movement)))
+	       :new-sketch
+	       (new-sketch @scene @old-mp)
+	       :end-sketch
+	       (end-sketch @scene @selection @old-mp)
 	       :rot
 	       (rotate-objs @scene @selection @action-start @rot-p @old-mp)
 	       :append
