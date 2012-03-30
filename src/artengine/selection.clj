@@ -1,5 +1,5 @@
 (ns artengine.selection
-  (use [artengine util polygon edit var]))
+  (use [artengine util polygon edit]))
 
 (defn obj-near?
   "determines if x is near or under p"
@@ -10,25 +10,25 @@
       (when closed
 	(shape-contains (get-polygon x xs) p))))
 
-(defn select-obj [xs mp dist]
+(defn select-obj [{:keys [objs stack]} mp dist]
   (let [seli (->> (map (fn [obj-i]
-			 [obj-i (get xs obj-i)])
-		       (reverse @stack))
+			 [obj-i (get objs obj-i)])
+		       (reverse stack))
 		  (filter (fn [[obj-i x]]
-			    (obj-near? x mp xs dist)))
+			    (obj-near? x mp objs dist)))
 		  first
 		  first)]
     (if seli
       {seli #{}}
       {})))
 
-(defn selectable-ps [xs obj-is]
+(defn selectable-ps [objs obj-is]
   (for [obj-i (keys obj-is)]
-    [obj-i (for [i (:ls (get xs obj-i))]
-	     [(get (:ps (get xs obj-i)) i) i])]))
+    [obj-i (for [i (:ls (get objs obj-i))]
+	     [(get (:ps (get objs obj-i)) i) i])]))
 
-(defn select-ps [xs selection mp dist]
-  (let [[sel-obj sel-i] (->> (for [[obj-i foos] (selectable-ps xs selection)
+(defn select-ps [{:keys [stack objs]} selection mp dist]
+  (let [[sel-obj sel-i] (->> (for [[obj-i foos] (selectable-ps objs selection)
 				   [p i] foos]
 			       [p [obj-i i]])
 			     (map (fn [[p i]]
@@ -43,8 +43,8 @@
 			 #{}))
 		     selection))))
 
-(defn rect-select [xs selection pa pb]
-  (->> (selectable-ps xs selection)
+(defn rect-select [{:keys [stack objs]} selection pa pb]
+  (->> (selectable-ps objs selection)
        (map (fn [[obj-i foos]]
 	      [obj-i (set (map second (filter (fn [[p i]]
 						(contains pa pb p))
@@ -56,8 +56,8 @@
 	    (contains pa pb p))
 	  (:ps x)))
   
-(defn rect-select-obj [xs pa pb]
-  (->> xs
+(defn rect-select-obj [{:keys [stack objs]} pa pb]
+  (->> objs
        (filter (fn [[obj-i x]]
 		 (obj-contains pa pb x)))
        (mapmap (fn [obj-i x] #{}))

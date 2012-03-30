@@ -9,7 +9,7 @@
     (alter key-actions assoc ~key (fn [] ~@body))))
 
 (defn act [f & args]
-  (apply alter objs f @selection args))
+  (apply alter scene f @selection args))
 
 (defkey [KeyEvent/VK_Q]
   (ref-set action :new-sketch))
@@ -41,9 +41,9 @@
   (act delete-objs-deco (keys @selection)))
 
 (defkey [KeyEvent/VK_D] ;todo decoration of non closed objects
-  (let [a (filter #(:closed (get @objs (first %))) @selection)
-	b (filter #(not (:closed (get @objs %))) (keys @selection))]
-    (alter objs deco-objs a b)))
+  (let [a (filter #(:closed (get (:objs @scene) (first %))) @selection)
+	b (filter #(not (:closed (get (:objs @scene) %))) (keys @selection))]
+    (alter scene deco-objs a b)))
 
 (defkey [KeyEvent/VK_F]
   (ref-set action :clip))
@@ -51,21 +51,11 @@
 (defkey [KeyEvent/VK_F :shift]
   (act delete-clip))
 
-(defn move-down [stack sel-objs]
-  (loop [s stack
-	 res []]
-    (if (< 1 (count s))
-      (let [[a b & d] s]
-	(if (and ((set sel-objs) b) (not ((set sel-objs) a)))
-	  (recur (cons a d) (conj res b))
-	  (recur (cons b d) (conj res a))))
-      (vec (concat res s)))))
-
 (defkey [KeyEvent/VK_DOWN]
-  (alter stack move-down (keys @selection)))
+  (alter scene move-down-stack (keys @selection)))
 
 (defkey [KeyEvent/VK_UP]
-  (alter stack #(vec (reverse (move-down (reverse %) (keys @selection))))))
+  (alter scene move-up-stack (keys @selection)))
 
 (defkey [KeyEvent/VK_TAB]
   (ref-set mode (if (= @mode :object)

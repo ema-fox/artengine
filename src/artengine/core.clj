@@ -17,13 +17,11 @@
 
 (defn save [path]
   (dosync
-   (spit path {:objs @objs :stack @stack})))
+   (spit path @scene)))
 
 (defn open [path]
   (dosync
-   (let [x (read-string (slurp path))]
-     (ref-set objs (:objs x))
-     (ref-set stack (:stack x)))))
+   (ref-set scene (read-string (slurp path)))))
 
 (defn paint-handle [g p]
   (fill-rect g (minus p [1 1]) [3 3]))
@@ -67,38 +65,39 @@
 (defn render [c g]
   (dosync
    (set-stroke-width g 1)
-   (let [xs (-> (condp = @action
-		    :extend
-		  (first (extend-objs @objs (keys @selection) @old-mp))
-		  :move
-		  (let [movement (minus @old-mp @action-start)]
-		    (if (= @mode :mesh)
-		      (move @objs @selection movement)
-		      (move-objs @objs @selection movement)))
-		  :rot
-		  (rotate-objs @objs @selection @action-start @rot-p @old-mp)
-		  :append
-		  (let [obj-i (first (keys @selection))]
-		    (assoc @objs obj-i (append (get @objs obj-i) @old-mp (/ (selection-dist) 2))))
-		  @objs)
-		(transform @trans))]
-     (doseq [i @stack
-	     :let [x (get xs i)]]
+   (let [{:keys [stack objs] :as disp-scene}
+	 (-> (condp = @action
+		 :extend
+	       (first (extend-objs @scene (keys @selection) @old-mp))
+	       :move
+	       (let [movement (minus @old-mp @action-start)]
+		 (if (= @mode :mesh)
+		   (move @scene @selection movement)
+		   (move-objs @scene @selection movement)))
+	       :rot
+	       (rotate-objs @scene @selection @action-start @rot-p @old-mp)
+	       :append
+	       (let [obj-i (first (keys @selection))]
+		 (assoc-in @scene [:objs obj-i] (append (get-in @scene [:objs obj-i]) @old-mp (/ (selection-dist) 2))))
+	       @scene)
+	     (transform @trans))]
+     (doseq [i stack
+	     :let [x (get objs i)]]
        (if (= (:type x) :sketch)
 	 (paint-sketch g x)
-	 (paint g x xs)))
+	 (paint g x objs)))
      (if (= @mode :object)
-       (if-let [sel (get xs (first (keys (select-obj xs (transform-p @old-mp @trans) 20))))]
-	 (paint-sel g sel [200 0 200 255] xs)))
-     (doseq [obj-i (keys @selection) :let [x (get xs obj-i)]]
+       (if-let [sel (get objs (first (keys (select-obj disp-scene (transform-p @old-mp @trans) 20))))]
+	 (paint-sel g sel [200 0 200 255] objs)))
+     (doseq [obj-i (keys @selection) :let [x (get objs obj-i)]]
        (if (= @mode :mesh)
 	 (paint-handles g x)
-	 (paint-sel g x [250 200 0 255] xs)))
+	 (paint-sel g x [250 200 0 255] objs)))
      (set-color g [250 200 0 255])
      (when (= @mode :mesh)
        (doseq [[obj-i is] @selection
 	       i is
-	       :let [p (get (:ps (get xs obj-i)) i)]]
+	       :let [p (get (:ps (get objs obj-i)) i)]]
       	 (paint-handle g p))))
    (set-stroke-width g 1)
    (if (= @action :select)
@@ -159,31 +158,27 @@
   (handle-move (get-pos e @trans)))
 
 (defn do-new-obj [p]
-  (let [[xs obj-i] (new-obj @objs p)]
-    (ref-set objs xs)
-    (ref-set selection {obj-i #{}})
-    (alter stack conj obj-i)))
+  (alter scene new-obj p)
+  (ref-set selection {(last (:stack @scene)) #{}}))
 
 (defn do-new-sketch [p]
-  (let [[xs obj-i] (new-sketch @objs p)]
-    (ref-set objs xs)
-    (ref-set selection {obj-i #{}})
-    (alter stack conj obj-i)))
+  (alter scene new-sketch p)
+  (ref-set selection {(last (:stack @scene)) #{}}))
 
 (defn do-end-sketch [p]
   (act end-sketch p))
 
 (defn do-append [p]
   (let [obj-i (first (keys @selection))
-	x (append (get @objs obj-i) p (/ (selection-dist) 2))]
+	x (append (get (:objs @scene) obj-i) p (/ (selection-dist) 2))]
     (when (:closed x)
       (ref-set action :normal))
-    (alter objs assoc obj-i x)))
+    (alter scene assoc-in [:objs obj-i] x)))
 
 (defn do-extend [p]
   (dosync
-   (let [[xs [obj-i i]] (extend-objs @objs (keys @selection) p)]
-     (ref-set objs xs)
+   (let [[foo [obj-i i]] (extend-objs @scene (keys @selection) p)]
+     (ref-set scene foo)
      (ref-set selection (into {} (mapmap (fn [obj-ib _]
 					   (if (= obj-ib obj-i)
 					     #{i}
@@ -191,12 +186,12 @@
 					 @selection))))))
 
 (defn do-clip [p]
-  (if-let [clip (first (keys (select-obj @objs p (selection-dist))))]
+  (if-let [clip (first (keys (select-obj @scene p (selection-dist))))]
     (act set-clip clip))
   (ref-set action :normal))
 
 (defn do-pick-style [p]
-  (if-let [master (first (keys (select-obj @objs p (selection-dist))))]
+  (if-let [master (first (keys (select-obj @scene p (selection-dist))))]
     (act pick-style master))
   (ref-set action :normal))
 
@@ -211,11 +206,11 @@
      (dosync
       (if (= @mode :mesh)
 	(ref-set selection (merge-with xunion
-				       (select-ps @objs @selection mp (selection-dist))
+				       (select-ps @scene @selection mp (selection-dist))
 				       (if shift
 					 @selection
 					 #{})))
-	(let [new-selction (select-obj @objs mp (selection-dist))]
+	(let [new-selction (select-obj @scene mp (selection-dist))]
 	  (ref-set selection (merge (apply dissoc new-selction (keys @selection))
 				    (if shift
 				      (apply dissoc @selection (keys new-selction))
@@ -224,12 +219,12 @@
      (dosync
       (if (= @mode :mesh)
 	(ref-set selection (merge-with union
-					 (rect-select @objs @selection pa pb)
+					 (rect-select @scene @selection pa pb)
 					 (if shift
 					   @selection
 					   #{})))
 	(ref-set selection (merge
-			    (rect-select-obj @objs pa pb)
+			    (rect-select-obj @scene pa pb)
 			    (if shift
 			      @selection
 			      {})))))))

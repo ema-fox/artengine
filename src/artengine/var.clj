@@ -1,8 +1,6 @@
 (ns artengine.var)
 
-(def objs (ref {}))
-
-(def stack (ref []))
+(def scene (ref {:objs {} :stack []}))
 
 (def selection (ref {}))
 

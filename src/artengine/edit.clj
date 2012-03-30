@@ -3,11 +3,12 @@
 	[clojure.set]))
 
 (defmacro deftool [name args body]
-  `(defn ~name [~'xs ~'selection ~@args]
-     (into ~'xs (mapmap (fn [~'obj-i ~'selis]
-			  (let [~'x (get ~'xs ~'obj-i)]
-			    ~body))
-			~'selection))))
+  `(defn ~name [{:keys [~'stack ~'objs] :as ~'scene} ~'selection ~@args]
+     (assoc ~'scene
+       :objs (into ~'objs (mapmap (fn [~'obj-i ~'selis]
+				    (let [~'x (get ~'objs ~'obj-i)]
+				      ~body))
+				  ~'selection)))))
 
 (defn get-new-key [xs]
   (if (first xs)
@@ -50,11 +51,11 @@
 	 (range)
 	 (rest (range)))))
 
-(defn extend-objs [xs obj-is p]
+(defn extend-objs [{:keys [stack objs] :as scene} obj-is p]
   (let [foo (->> (for [obj-i obj-is]
-		   (extend-obj (get xs obj-i) p (fn [[x i]]
-						  [(assoc xs obj-i x)
-						   [obj-i i]])))
+		   (extend-obj (get objs obj-i) p (fn [[x i]]
+						    [(assoc-in scene [:objs obj-i] x)
+						     [obj-i i]])))
 		 (apply concat)
 		 (sort-by first)
 		 first
@@ -69,15 +70,17 @@
 	:ls (conj (vec ls) newi)
 	:ps (assoc ps newi p)))))
 
-(defn new-obj [xs p]
-  (let [newi (get-new-key xs)]
-    [(assoc xs newi {:ps {1 p} :ls [1] :closed false :line-color [0 0 0 255] :line-width 1})
-     newi]))
+(defn new-obj [{:keys [stack objs] :as scene} p]
+  (let [newi (get-new-key objs)]
+    (assoc scene
+      :objs (assoc objs newi {:ps {1 p} :ls [1] :closed false :line-color [0 0 0 255] :line-width 1})
+      :stack (conj stack newi))))
 
-(defn new-sketch [xs p]
-  (let [newi (get-new-key xs)]
-    [(assoc xs newi {:ps {1 p} :ls [1] :type :sketch :size 20})
-     newi]))
+(defn new-sketch [{:keys [stack objs] :as scene} p]
+  (let [newi (get-new-key objs)]
+    (assoc scene
+      :objs (assoc objs newi {:ps {1 p} :ls [1] :type :sketch :size 20})
+      :stack (conj stack newi))))
 
 (deftool end-sketch [p]
   (assoc x
@@ -97,24 +100,27 @@
       (assoc x :decos (set newdecos))
       (dissoc x :decos))))
 
-(defn fix [xs]
-  (into {} (mapmap (fn [obj-i x]
-		     (fix-obj x xs))
-		xs)))
+(defn fix [{:keys [stack objs] :as scene}]
+  (assoc scene
+    :objs (into {} (mapmap (fn [obj-i x]
+			     (fix-obj x objs))
+			   objs))
+    :stack (vec (filter #(not (get objs %)) stack))))
 
-(defn delete-objs [xs selection]
-  (fix (apply dissoc xs (keys selection))))
+(defn delete-objs [{:keys [stack objs] :as scene}  selection]
+  (fix (assoc scene
+	 :objs (apply dissoc dissoc (keys selection)))))
 
 (defn delete-ps [{:keys [ps ls] :as x} selis]
   (assoc x
     :ps (apply dissoc ps selis)
     :ls (filter #(not (contains? selis %)) ls)))
 
-(defn delete [xs selection]
+(defn delete [{:keys [stack objs] :as scene} selection]
   (let [foo (mapmap (fn [obj-i selis]
-		      (delete-ps (get xs obj-i) selis))
+		      (delete-ps (get objs obj-i) selis))
 		    selection)]
-    (delete-objs (into xs foo)
+    (delete-objs (assoc scene :objs (into objs foo))
 		 (map first (filter #(empty? (:ps (second %))) foo)))))
 
 (deftool delete-color []
@@ -130,7 +136,7 @@
   (assoc x :line-color color))
 
 (deftool delete-objs-deco [obj-is]
-  (fix-obj (assoc x :decos (difference (:decos x #{}) (set obj-is))) xs))
+  (fix-obj (assoc x :decos (difference (:decos x #{}) (set obj-is))) objs))
 
 (deftool deco-objs [obj-is]
   (assoc x :decos (union (:decos x #{}) (set obj-is))))
@@ -157,7 +163,7 @@
 (deftool set-clip [clip]
   (if (and (not= obj-i clip)
 	   (loop [i clip]
-	     (let [clipi (:clip (get xs i))]
+	     (let [clipi (:clip (get objs i))]
 	       (if clipi
 		 (if (= clipi obj-i)
 		   false
@@ -167,8 +173,8 @@
     x))
 
 (deftool pick-style [masteri]
-  (let [master (get xs masteri)]
-    (merge x (select-keys master [:line-width :line-color :fill-color]))))
+  (let [master (get objs masteri)]
+    (merge (dissoc x :line-width :line-color :fill-color) (select-keys master [:line-width :line-color :fill-color]))))
 
 (defn rotate-ps [ps pa rot]
   (let [foops (mapmap (fn [i p]
@@ -184,12 +190,33 @@
 	[a2 _] (avec<-dvec (minus p rot-p1))]
     (assoc x :ps (rotate-ps (:ps x) rot-p1 (- a2 a1)))))
 
-(defn transform [xs [scale :as transformation]]
-  (into {} (mapmap (fn [obj-i x]
-		     (assoc (if (= (:type x) :sketch)
-			      (assoc x :size (* scale (:size x)))
-			      (assoc x :line-width (* scale (:line-width x))))
-		       :ps (into {} (mapmap (fn [i p]
-					      (transform-p p transformation))
-					    (:ps x)))))
-		   xs)))
+(defn move-down [stack sel-objs]
+  (loop [s stack
+	 res []]
+    (if (< 1 (count s))
+      (let [[a b & d] s]
+	(if (and ((set sel-objs) b) (not ((set sel-objs) a)))
+	  (recur (cons a d) (conj res b))
+	  (recur (cons b d) (conj res a))))
+      (vec (concat res s)))))
+
+(defn move-down-stack [{:keys [stack objs] :as scene} sel-objs]
+  (assoc scene :stack (move-down stack sel-objs)))
+
+(defn move-up-stack [{:keys [stack objs] :as scene} sel-objs]
+  (assoc scene :stack (-> stack
+			  reverse
+			  (move-down sel-objs)
+			  reverse
+			  vec)))
+
+(defn transform [{:keys [stack objs] :as scene} [scale :as transformation]]
+  (assoc scene
+    :objs (into {} (mapmap (fn [obj-i x]
+			     (assoc (if (= (:type x) :sketch)
+				      (assoc x :size (* scale (:size x)))
+				      (assoc x :line-width (* scale (:line-width x))))
+			       :ps (into {} (mapmap (fn [i p]
+						      (transform-p p transformation))
+						    (:ps x)))))
+			   objs))))
