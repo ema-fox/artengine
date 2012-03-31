@@ -37,14 +37,6 @@
   (if-let [color (get-color)]
     (act set-border-color color)))
 
-(defkey [KeyEvent/VK_D :shift]
-  (act delete-objs-deco (keys @selection)))
-
-(defkey [KeyEvent/VK_D] ;todo decoration of non closed objects
-  (let [a (filter #(:closed (get (:objs @scene) (first %))) @selection)
-	b (filter #(not (:closed (get (:objs @scene) %))) (keys @selection))]
-    (alter scene deco-objs a b)))
-
 (defkey [KeyEvent/VK_F]
   (ref-set action :clip))
 

@@ -135,12 +135,6 @@
 (deftool set-border-color [color]
   (assoc x :line-color color))
 
-(deftool delete-objs-deco [obj-is]
-  (fix-obj (assoc x :decos (difference (:decos x #{}) (set obj-is))) objs))
-
-(deftool deco-objs [obj-is]
-  (assoc x :decos (union (:decos x #{}) (set obj-is))))
-
 (defn move-ps [{:keys [ps] :as x} movement selis]
   (assoc x :ps (into ps (map (fn [i]
 			       [i (plus (get ps i) movement)])
