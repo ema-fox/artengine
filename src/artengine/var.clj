@@ -12,3 +12,5 @@
 (def old-mp (ref [0 0]))
 
 (def rot-p (ref nil))
+
+(def file-path (ref nil))

@@ -21,6 +21,7 @@
 
 (defn open [path]
   (dosync
+   (ref-set file-path path)
    (ref-set scene (read-string (slurp path)))))
 
 (defn paint-handle [g p]
@@ -120,8 +121,11 @@
   (System/exit 0))
 
 (defkey [KeyEvent/VK_S :ctrl]
-  (if-let [path (choose-file :type :save)]
-    (save path)))
+  (dosync
+   (if-not @file-path
+     (ref-set file-path (choose-file :type :save)))
+   (if @file-path
+    (save @file-path))))
 
 (defkey [KeyEvent/VK_O :ctrl]
   (if-let [path (choose-file)]
