@@ -35,7 +35,7 @@
 	       (plus pd (direction pd pe))))]
     (distance p pf)))
 
-(defn extend-obj [{:keys [ps ls closed] :as x} p retfn]
+(defn extend-obj [{:keys [ps ls closed softs] :as x} p retfn]
   (map (fn [[ia ib] i]
 	 (let [pa (get ps ia)
 	       pb (get ps ib)]
@@ -44,6 +44,7 @@
 	      (let [newi (get-new-key ps)]
 		(retfn [(assoc x
 			  :ps (assoc ps newi p)
+			  :softs (assoc softs newi false)
 			  :ls (concat (take i ls) [newi] (drop i ls)))
 			newi])))]))
        (get-ilines x)
@@ -62,18 +63,24 @@
 		 second)]
     (foo)))
 
-(defn append [{:keys [ps ls] :as x} p dist]
+(defn append [{:keys [ps ls softs] :as x} p dist]
   (if (< (distance p (get ps (first ls))) dist)
     (assoc x :closed true)
     (let [newi (get-new-key ps)]
       (assoc x
 	:ls (conj (vec ls) newi)
+	:softs (assoc softs newi false)
 	:ps (assoc ps newi p)))))
 
 (defn new-obj [{:keys [stack objs] :as scene} p]
   (let [newi (get-new-key objs)]
     (assoc scene
-      :objs (assoc objs newi {:ps {1 p} :ls [1] :closed false :line-color [0 0 0 255] :line-width 1})
+      :objs (assoc objs newi {:ps {1 p}
+			      :softs {1 false}
+			      :ls [1]
+			      :closed false
+			      :line-color [0 0 0 255]
+			      :line-width 1})
       :stack (conj stack newi))))
 
 (defn new-sketch [{:keys [stack objs] :as scene} p]
@@ -142,6 +149,16 @@
 
 (deftool move [movement]
   (move-ps x movement selis))
+
+(deftool soft []
+  (assoc x :softs (into (:softs x) (map (fn [i]
+					  [i true])
+					selis))))
+
+(deftool unsoft []
+  (assoc x :softs (into (:softs x) (map (fn [i]
+					  [i false])
+					selis))))
 
 (defn move-obj [x movement]
   (assoc x

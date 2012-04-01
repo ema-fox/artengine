@@ -15,24 +15,26 @@
 (defn line-to [path [p0 p1]]
   (.lineTo path p0 p1))
 
-(defn make-path [ps]
+(defn make-path [{:keys [ps ls softs] :as x}]
   (let [path (GeneralPath.)]
     (when (second ps)
-      (move-to path (avg-point (first ps) (second ps) 0.5))
-      (dorun (map (fn [pa pb pc]
-		    (if (< (Math/abs (- (first (avec<-dvec (minus pa pb)))
-					(first (avec<-dvec (minus pb pc))))) 1)
-		      (quad-to path pb (avg-point pb pc 0.5))
-		      (do
-			(line-to path pb)
-			(line-to path (avg-point pb pc 0.5)))))
-		  ps
-		  (concat (rest ps) (take 1 ps))
-		  (concat (drop 2 ps) (take 2 ps)))))
+      (move-to path (avg-point (get ps (first ls)) (get ps (second ls)) 0.5))
+      (dorun (map (fn [ia ib ic]
+		    (let [pa (get ps ia)
+			  pb (get ps ib)
+			  pc (get ps ic)]
+		      (if (get softs ib)
+			(quad-to path pb (avg-point pb pc 0.5))
+			(do
+			  (line-to path pb)
+			  (line-to path (avg-point pb pc 0.5))))))
+		  ls
+		  (concat (rest ls) (take 1 ls))
+		  (concat (drop 2 ls) (take 2 ls)))))
     path))
 
-(defn get-polygon [{:keys [ps ls decos clip] :as x} xs]
-  (let [pol (make-path (map #(get ps %) ls))]
+(defn get-polygon [{:keys [clip] :as x} xs]
+  (let [pol (make-path x)]
     (if clip
       (clip-polygon pol (get-polygon (get xs clip) xs))
       pol)))

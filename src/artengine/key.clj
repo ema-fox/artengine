@@ -37,6 +37,12 @@
   (if-let [color (get-color)]
     (act set-border-color color)))
 
+(defkey [KeyEvent/VK_U]
+  (act soft))
+
+(defkey [KeyEvent/VK_U :shift]
+  (act unsoft))
+
 (defkey [KeyEvent/VK_F]
   (ref-set action :clip))
 
