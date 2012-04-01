@@ -114,7 +114,7 @@
 			   objs))
     :stack (vec (filter #(get objs %) stack))))
 
-(defn delete-objs [{:keys [stack objs] :as scene}  selection]
+(defn delete-objs [{:keys [objs] :as scene} selection]
   (fix (assoc scene
 	 :objs (apply dissoc objs (keys selection)))))
 
@@ -123,12 +123,12 @@
     :ps (apply dissoc ps selis)
     :ls (filter #(not (contains? selis %)) ls)))
 
-(defn delete [{:keys [stack objs] :as scene} selection]
+(defn delete [{:keys [objs] :as scene} selection]
   (let [foo (mapmap (fn [obj-i selis]
 		      (delete-ps (get objs obj-i) selis))
 		    selection)]
     (delete-objs (assoc scene :objs (into objs foo))
-		 (map first (filter #(empty? (:ps (second %))) foo)))))
+		 (into {} (filter #(empty? (:ps (second %))) foo)))))
 
 (deftool delete-color []
   (dissoc x :fill-color))
