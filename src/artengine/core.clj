@@ -25,10 +25,15 @@
    (ref-set scene (read-string (slurp path)))))
 
 (defn paint-handle [g p]
+  (set-color g [255 255 255 255])
+  (fill-rect g (minus p [1 1]) [3 3])
+  (set-color g [0 0 0 255])
+  (fill-rect g p [1 1]))
+
+(defn paint-solid-handle [g p]
   (fill-rect g (minus p [1 1]) [3 3]))
 
 (defn paint-handles [g {:keys [ps ls]}]
-  (set-color g [0 0 0 255])
   (doseq [i ls]
     (paint-handle g (get ps i))))
 
@@ -103,7 +108,7 @@
        (doseq [[obj-i is] @selection
 	       i is
 	       :let [p (get (:ps (get objs obj-i)) i)]]
-      	 (paint-handle g p))))
+	 (paint-solid-handle g p))))
    (set-stroke-width g 1)
    (if (= @action :select)
      (draw-rect g (transform-p @action-start @trans) (transform-p @old-mp @trans)))
