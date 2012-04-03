@@ -70,6 +70,14 @@
     (ref-set action :new-obj)
     (ref-set action :normal)))
 
+(defkey [KeyEvent/VK_D]
+  (let [[newscene newselection] (copy @scene @selection)]
+    (ref-set scene newscene)
+    (ref-set selection (into {} (map (fn [i] [i #{}])
+				     newselection)))
+    (ref-set action-start @old-mp)
+    (ref-set action :move)))
+
 (defkey [KeyEvent/VK_R]
   (ref-set action :rot-p)
   (ref-set action-start @old-mp))

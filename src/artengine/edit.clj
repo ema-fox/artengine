@@ -72,6 +72,16 @@
 	:softs (assoc softs newi false)
 	:ps (assoc ps newi p)))))
 
+(defn copy [{:keys [stack objs] :as scene} selection]
+  (let [newis (take (count selection) (iterate inc (get-new-key objs)))]
+    [(assoc scene
+       :stack (into stack newis)
+       :objs (into objs (map (fn [obj-i newi]
+			       [newi (get objs obj-i)])
+			     (keys selection)
+			     newis)))
+     newis]))
+
 (defn new-obj [{:keys [stack objs] :as scene} p]
   (let [newi (get-new-key objs)]
     (assoc scene

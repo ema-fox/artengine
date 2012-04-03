@@ -3,7 +3,7 @@
   (:use [artengine util edit selection polygon var key]
 	[seesaw [core :exclude [select action selection]] graphics color chooser]
 	[clojure set stacktrace]
-	[clojure.java.io])
+	[clojure.java.io :exclude [copy]])
   (:import [java.awt.event KeyEvent MouseEvent]
 	   [javax.imageio ImageIO]
 	   [java.awt.geom Area]
