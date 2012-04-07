@@ -4,7 +4,11 @@ A vector drawing program.
 
 ## Usage
 
-start with `lein run`
+To start the latest alpha build run [this jar](http://dl.dropbox.com/u/3943312/artengine-0.0.1-standalone.jar) with java.
+
+To start the development version you have to install [leinigen](https://github.com/technomancy/leiningen) and run `lein run` in this folder.
+
+---
 
 To make a new path press space. Click to make new points. Press space again or rightclick to finish the path.
 
