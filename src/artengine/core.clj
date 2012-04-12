@@ -65,7 +65,7 @@
     (draw g a (style :background (color 0 0 0 30)))))
 
 (defmethod paint :interpolation
-  [g {:keys [ps las lbs steps] :as x} xs]
+  [g {:keys [ps las lbs steps softs] :as x} xs]
   (doseq [foo (range steps)]
     (paint g (assoc (dissoc x :las :lbs)
                :type :path
@@ -74,6 +74,11 @@
                                  las
                                  lbs
                                  (range)))
+               :softs (into {} (map (fn [ia ib i]
+                                      [i (or (get softs ia) (get softs ib))])
+                                    las
+                                    lbs
+                                    (range)))
                :ls (take (count las) (range)))
            xs)))
 
