@@ -15,10 +15,18 @@
 (defn line-to [path [p0 p1]]
   (.lineTo path p0 p1))
 
-(defn make-path [{:keys [ps ls softs] :as x}]
-  (let [path (GeneralPath.)]
+(defn make-path [{:keys [ps ls softs closed] :as x}]
+  (let [foo #(if closed
+               %
+               (drop-last 2 %))
+        path (GeneralPath.)]
     (when (second ps)
-      (move-to path (avg-point (get ps (first ls)) (get ps (second ls)) 0.5))
+      (let [bar (avg-point (get ps (first ls)) (get ps (second ls)) 0.5)]
+        (move-to path (if closed
+                        bar
+                        (get ps (first ls))))
+        (if-not closed
+          (line-to path bar)))
       (dorun (map (fn [ia ib ic]
 		    (let [pa (get ps ia)
 			  pb (get ps ib)
@@ -28,9 +36,11 @@
 			(do
 			  (line-to path pb)
 			  (line-to path (avg-point pb pc 0.5))))))
-		  ls
-		  (concat (rest ls) (take 1 ls))
-		  (concat (drop 2 ls) (take 2 ls)))))
+		  (foo ls)
+		  (foo (concat (rest ls) (take 1 ls)))
+		  (foo (concat (drop 2 ls) (take 2 ls)))))
+      (if-not closed
+        (line-to path (get ps (last ls)))))
     path))
 
 (defn get-polygon [{:keys [clip] :as x} xs]

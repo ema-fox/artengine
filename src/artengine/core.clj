@@ -47,9 +47,7 @@
   (when line-color
     (set-stroke-width g line-width)
     (set-color g line-color)
-    (if closed
-      (.draw g (get-polygon x xs))
-      (draw-lines g (map #(get ps %) ls)))))
+    (.draw g (get-polygon x xs))))
 
 (defmethod paint :sketch
   [g {:keys [ps size]} xs]
