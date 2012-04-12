@@ -15,12 +15,22 @@
     (inc (apply max (map first xs)))
     1))
 
-(defn get-ilines [{:keys [ps ls closed]}]
+(defn get-keylines [key {:keys [closed] ls key}]
   (map vector
        ls
        (if (and closed (< 1 (count ls)))
 	 (cons (last ls) (butlast ls))
 	 (rest ls))))
+
+(defmulti get-ilines :type)
+
+(defmethod get-ilines :interpolation
+  [x]
+  (concat (get-keylines :las x) (get-keylines :lbs x)))
+
+(defmethod get-ilines :default
+  [x]
+  (get-keylines :ls x))
 
 (defn get-lines [{:keys [ps] :as x}]
   (map (fn [[x y]]
@@ -35,18 +45,81 @@
 	       (plus pd (direction pd pe))))]
     (distance p pf)))
 
-(defn extend-obj [{:keys [ps ls closed softs] :as x} p retfn]
+(defmulti interpolate-obj :type)
+
+(defmethod interpolate-obj :default
+  [x]
+  [x []])
+
+(defmethod interpolate-obj :path
+  [{:keys [ls ps] :as x}]
+  (let [newis (take (count ps) (iterate inc (get-new-key ps)))]
+    [(assoc (dissoc x :ls)
+       :type :interpolation
+       :las ls
+       :lbs newis
+       :steps 5
+       :ps (into ps (map (fn [oldi newi]
+			   [newi (get ps oldi)])
+			 ls newis)))
+     newis]))
+
+(defn interpolate [{:keys [objs] :as scene} selection]
+  (let [foo (mapmap (fn [obj-i _]
+		      (interpolate-obj (get objs obj-i)))
+		    selection)]
+    [(assoc scene
+       :objs (into objs (mapmap (fn [obj-i [x _]]
+				  x)
+				foo)))
+     (into {} (mapmap (fn [obj-i [_ selis]]
+			(set selis))
+		      foo))]))
+
+(defmulti extend-obj (fn [x p retf] (:type x)))
+
+;this fn is way to big
+(defmethod extend-obj :interpolation
+  [{:keys [ps closed softs] :as x} p retfn]
+  (apply concat (map (fn [prim sec]
+                       (let [{prims prim
+                              secs sec} x]
+                         (map (fn [[ia ib] i]
+                                [(let [pa (get ps ia)
+                                       pb (get ps ib)]
+                                   (line-p-distance pa pb p))
+                                 (fn []
+                                   (let [newi (get-new-key ps)]
+                                     (retfn [(assoc x
+                                               :ps (assoc ps
+                                                     newi p
+                                                     (inc newi) (avg-point (get ps (nth secs i))
+                                                                           (get ps (nth secs (mod (dec i) (count secs))))
+                                                                           0.5))
+                                               :softs (assoc softs newi false (inc newi) false)
+                                               prim (insert-at i prims newi)
+                                               sec (insert-at i secs (inc newi)))
+                                             newi])))])
+                              (get-keylines prim x)
+                              (if closed
+                                (range)
+                                (rest (range))))))
+                     [:las :lbs]
+                     [:lbs :las])))
+
+(defmethod extend-obj :path
+  [{:keys [ps ls closed softs] :as x} p retfn]
   (map (fn [[ia ib] i]
-	 (let [pa (get ps ia)
-	       pb (get ps ib)]
-	   [(line-p-distance pa pb p)
-	    (fn []
-	      (let [newi (get-new-key ps)]
-		(retfn [(assoc x
-			  :ps (assoc ps newi p)
-			  :softs (assoc softs newi false)
-			  :ls (concat (take i ls) [newi] (drop i ls)))
-			newi])))]))
+	 [(let [pa (get ps ia)
+                pb (get ps ib)]
+            (line-p-distance pa pb p))
+          (fn []
+            (let [newi (get-new-key ps)]
+              (retfn [(assoc x
+                        :ps (assoc ps newi p)
+                        :softs (assoc softs newi false)
+                        :ls (insert-at i ls newi))
+                      newi])))])
        (get-ilines x)
        (if closed
 	 (range)
@@ -90,7 +163,8 @@
 			      :ls [1]
 			      :closed false
 			      :line-color [0 0 0 255]
-			      :line-width 1})
+			      :line-width 1
+			      :type :path})
       :stack (conj stack newi))))
 
 (defn new-sketch [{:keys [stack objs] :as scene} p]
@@ -206,10 +280,38 @@
 		       (plus pa (dvec<-avec p)))
 		     foops))))
 
-(deftool rotate-objs [rot-p1 rot-p2 p]
+(deftool rotate-tool [rot-p1 rot-p2 p]
   (let [[a1 _] (avec<-dvec (minus rot-p2 rot-p1))
 	[a2 _] (avec<-dvec (minus p rot-p1))]
     (assoc x :ps (rotate-ps (:ps x) rot-p1 (- a2 a1)))))
+
+(defn selection-avg [{:keys [objs]} selection]
+  (let [ps (for [obj-i (keys selection)
+                 [i p] (:ps (get objs obj-i))]
+             p)]
+    (div (reduce plus ps) (count ps))))
+
+(defn rotate-objs [scene selection pa pb]
+  (rotate-tool scene selection (selection-avg scene selection) pa pb))
+
+(deftool scale-tool [origin factor]
+  (assoc x :ps (into {} (mapmap (fn [i p]
+                                  (plus origin (mult (minus p origin) factor)))
+                                (:ps x)))))
+
+(defn scale-objs [scene selection pa pb]
+  (let [origin (selection-avg scene selection)]
+    (scale-tool scene selection origin (/ (distance origin pb) (distance origin pa)))))
+
+(deftool scale-steps-tool [origin factor]
+  (if (:steps x)
+    (assoc x
+      :steps (max 2 (int (* factor (+ 0.5 (:steps x))))))
+    x))
+
+(defn scale-steps [scene selection pa pb]
+  (let [origin (selection-avg scene selection)]
+    (scale-steps-tool scene selection origin (/ (distance origin pb) (distance origin pa)))))
 
 (defn move-down [stack sel-objs]
   (loop [s stack

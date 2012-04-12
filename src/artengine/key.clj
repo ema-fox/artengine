@@ -70,6 +70,14 @@
     (ref-set action :new-obj)
     (ref-set action :normal)))
 
+(defkey [KeyEvent/VK_W]
+  (let [[newscene newselection] (interpolate @scene @selection)]
+    (ref-set scene newscene)
+    (ref-set selection newselection)
+    (ref-set mode :mesh)
+    (ref-set action-start @old-mp)
+    (ref-set action :move)))
+
 (defkey [KeyEvent/VK_D]
   (let [[newscene newselection] (copy @scene @selection)]
     (ref-set scene newscene)
@@ -79,7 +87,15 @@
     (ref-set action :move)))
 
 (defkey [KeyEvent/VK_R]
-  (ref-set action :rot-p)
+  (ref-set action :rot)
+  (ref-set action-start @old-mp))
+
+(defkey [KeyEvent/VK_S]
+  (ref-set action :scale)
+  (ref-set action-start @old-mp))
+
+(defkey [KeyEvent/VK_M]
+  (ref-set action :scale-steps)
   (ref-set action-start @old-mp))
 
 (defkey [KeyEvent/VK_G]

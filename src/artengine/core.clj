@@ -24,6 +24,8 @@
    (ref-set file-path path)
    (ref-set scene (read-string (slurp path)))))
 
+(defmulti paint (fn [g x objs] (:type x)))
+
 (defn paint-handle [g p]
   (set-color g [255 255 255 255])
   (fill-rect g (minus p [1 1]) [3 3])
@@ -33,11 +35,12 @@
 (defn paint-solid-handle [g p]
   (fill-rect g (minus p [1 1]) [3 3]))
 
-(defn paint-handles [g {:keys [ps ls]}]
-  (doseq [i ls]
-    (paint-handle g (get ps i))))
+(defn paint-handles [g {:keys [ps]}]
+  (doseq [[i p] ps]
+    (paint-handle g p)))
 
-(defn paint [g {:keys [ps ls closed clip fill-color line-color line-width] :as x} xs]
+(defmethod paint :path
+  [g {:keys [ps ls closed clip fill-color line-color line-width] :as x} xs]
   (when fill-color
     (set-color g fill-color)
     (.fill g (get-polygon x xs)))
@@ -48,7 +51,8 @@
       (.draw g (get-polygon x xs))
       (draw-lines g (map #(get ps %) ls)))))
 
-(defn paint-sketch [g {:keys [ps size]}]
+(defmethod paint :sketch
+  [g {:keys [ps size]} xs]
   (let [[a b] (for [[i [p0 p1]] ps]
 		(Area. (circle p0 p1 size)))]
     (when b
@@ -62,6 +66,19 @@
 	    (.add a (Area. (polygon (plus pa d) (plus pb d) (minus pb d) (minus pa d))))))
     (draw g a (style :background (color 0 0 0 30)))))
 
+(defmethod paint :interpolation
+  [g {:keys [ps las lbs steps] :as x} xs]
+  (doseq [foo (range steps)]
+    (paint g (assoc (dissoc x :las :lbs)
+               :type :path
+               :ps (into {} (map (fn [ia ib i]
+                                   [i (avg-point (get ps ia) (get ps ib) (/ foo (dec steps)))])
+                                 las
+                                 lbs
+                                 (range)))
+               :ls (take (count las) (range)))
+           xs)))
+
 (defn paint-sel [g x color xs]
   (paint g (dissoc (assoc x :line-color color :line-width 1) :clip :fill-color) xs))
 
@@ -73,7 +90,7 @@
    (set-stroke-width g 1)
    (let [{:keys [stack objs] :as disp-scene}
 	 (-> (condp = @action
-		 :extend
+               :extend
 	       (first (extend-objs @scene (keys @selection) @old-mp))
 	       :move
 	       (let [movement (minus @old-mp @action-start)]
@@ -85,7 +102,11 @@
 	       :end-sketch
 	       (end-sketch @scene @selection @old-mp)
 	       :rot
-	       (rotate-objs @scene @selection @action-start @rot-p @old-mp)
+	       (rotate-objs @scene @selection @action-start @old-mp)
+               :scale
+               (scale-objs @scene @selection @action-start @old-mp)
+               :scale-steps
+               (scale-steps @scene @selection @action-start @old-mp)
 	       :append
 	       (let [obj-i (first (keys @selection))]
 		 (assoc-in @scene [:objs obj-i] (append (get-in @scene [:objs obj-i]) @old-mp (/ (selection-dist) 2))))
@@ -93,9 +114,7 @@
 	     (transform @trans))]
      (doseq [i stack
 	     :let [x (get objs i)]]
-       (if (= (:type x) :sketch)
-	 (paint-sketch g x)
-	 (paint g x objs)))
+       (paint g x objs))
      (if (= @mode :object)
        (if-let [sel (get objs (first (keys (select-obj disp-scene (transform-p @old-mp @trans) 20))))]
 	 (paint-sel g sel [200 0 200 255] objs)))
@@ -282,14 +301,18 @@
      (condp = (.getButton e)
 	 MouseEvent/BUTTON1
        (condp = @action
-	   :rot-p
+         :rot
 	 (do
-	   (ref-set rot-p p)
-	   (ref-set action :rot))
-	   :rot
-	 (do
-	   (act rotate-objs @action-start @rot-p p)
+	   (act rotate-objs @action-start p)
 	   (ref-set action :normal))
+         :scale
+         (do
+           (act scale-objs @action-start p)
+           (ref-set action :normal))
+         :scale-steps
+         (do
+           (act scale-steps @action-start p)
+           (ref-set action :normal))
 	 :move
 	 (do
 	   (do-move (minus p @action-start))

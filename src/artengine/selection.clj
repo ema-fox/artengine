@@ -24,12 +24,11 @@
 
 (defn selectable-ps [objs obj-is]
   (for [obj-i (keys obj-is)]
-    [obj-i (for [i (:ls (get objs obj-i))]
-	     [(get (:ps (get objs obj-i)) i) i])]))
+    [obj-i (:ps (get objs obj-i))]))
 
 (defn select-ps [{:keys [stack objs]} selection mp dist]
   (let [[sel-obj sel-i] (->> (for [[obj-i foos] (selectable-ps objs selection)
-				   [p i] foos]
+				   [i p] foos]
 			       [p [obj-i i]])
 			     (map (fn [[p i]]
 				    [(distance mp p) i]))
@@ -46,7 +45,7 @@
 (defn rect-select [{:keys [stack objs]} selection pa pb]
   (->> (selectable-ps objs selection)
        (map (fn [[obj-i foos]]
-	      [obj-i (set (map second (filter (fn [[p i]]
+	      [obj-i (set (map first (filter (fn [[i p]]
 						(contains pa pb p))
 					      foos)))]))
        (into {})))

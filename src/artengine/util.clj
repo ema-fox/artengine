@@ -10,6 +10,9 @@
 	 [key (f key value)])
        m))
 
+(defn insert-at [i xs x]
+  (concat (take i xs) [x] (drop i xs)))
+
 (defn fill-rect [g [p0 p1] [s0 s1]]
   (.fillRect g p0 p1 s0 s1))
 
