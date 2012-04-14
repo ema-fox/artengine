@@ -15,22 +15,12 @@
     (inc (apply max (map first xs)))
     1))
 
-(defn get-keylines [key {:keys [closed] ls key}]
+(defn get-ilines [{:keys [closed ls]}]
   (map vector
        ls
        (if (and closed (< 1 (count ls)))
 	 (cons (last ls) (butlast ls))
 	 (rest ls))))
-
-(defmulti get-ilines :type)
-
-(defmethod get-ilines :interpolation
-  [x]
-  (concat (get-keylines :las x) (get-keylines :lbs x)))
-
-(defmethod get-ilines :default
-  [x]
-  (get-keylines :ls x))
 
 (defn get-lines [{:keys [ps] :as x}]
   (map (fn [[x y]]
@@ -45,67 +35,7 @@
 	       (plus pd (direction pd pe))))]
     (distance p pf)))
 
-(defmulti interpolate-obj :type)
-
-(defmethod interpolate-obj :default
-  [x]
-  [x []])
-
-(defmethod interpolate-obj :path
-  [{:keys [ls ps] :as x}]
-  (let [newis (take (count ps) (iterate inc (get-new-key ps)))]
-    [(assoc (dissoc x :ls)
-       :type :interpolation
-       :las ls
-       :lbs newis
-       :steps 5
-       :ps (into ps (map (fn [oldi newi]
-			   [newi (get ps oldi)])
-			 ls newis)))
-     newis]))
-
-(defn interpolate [{:keys [objs] :as scene} selection]
-  (let [foo (mapmap (fn [obj-i _]
-		      (interpolate-obj (get objs obj-i)))
-		    selection)]
-    [(assoc scene
-       :objs (into objs (mapmap (fn [obj-i [x _]]
-				  x)
-				foo)))
-     (into {} (mapmap (fn [obj-i [_ selis]]
-			(set selis))
-		      foo))]))
-
 (defmulti extend-obj (fn [x p retf] (:type x)))
-
-;this fn is way to big
-(defmethod extend-obj :interpolation
-  [{:keys [ps closed softs] :as x} p retfn]
-  (apply concat (map (fn [prim sec]
-                       (let [{prims prim
-                              secs sec} x]
-                         (map (fn [[ia ib] i]
-                                [(let [pa (get ps ia)
-                                       pb (get ps ib)]
-                                   (line-p-distance pa pb p))
-                                 (fn []
-                                   (let [newi (get-new-key ps)]
-                                     (retfn [(assoc x
-                                               :ps (assoc ps
-                                                     newi p
-                                                     (inc newi) (avg-point (get ps (nth secs i))
-                                                                           (get ps (nth secs (mod (dec i) (count secs))))
-                                                                           0.5))
-                                               :softs (assoc softs newi false (inc newi) false)
-                                               prim (insert-at i prims newi)
-                                               sec (insert-at i secs (inc newi)))
-                                             newi])))])
-                              (get-keylines prim x)
-                              (if closed
-                                (range)
-                                (rest (range))))))
-                     [:las :lbs]
-                     [:lbs :las])))
 
 (defmethod extend-obj :path
   [{:keys [ps ls closed softs] :as x} p retfn]
@@ -125,11 +55,31 @@
 	 (range)
 	 (rest (range)))))
 
+(defn index-of
+  "when x is not in xs returns (count xs)"
+  [xs x]
+  (count (take-while #(not= x %) xs)))
+
+(defn extend-sibling [{:keys [ps ls] :as x} i]
+  (let [newi (get-new-key ps)]
+    (assoc x
+      :ps (assoc ps
+            newi (avg-point (get ps (nth ls i)) (get ps (nth ls (dec i))) 0.5))
+      :ls (insert-at i ls newi))))
+
 (defn extend-objs [{:keys [stack objs] :as scene} obj-is p]
   (let [foo (->> (for [obj-i obj-is]
-		   (extend-obj (get objs obj-i) p (fn [[x i]]
-						    [(assoc-in scene [:objs obj-i] x)
-						     [obj-i i]])))
+		   (extend-obj (get objs obj-i) p
+                               (fn [[x i]]
+                                 [(assoc scene
+                                    :objs (if-let [sib (:sibling x)]
+                                            (assoc objs
+                                              obj-i x
+                                              sib (extend-sibling (get objs sib)
+                                                                  (index-of (:ls x) i)))
+                                            (assoc objs
+                                              obj-i x)))
+                                  [obj-i i]])))
 		 (apply concat)
 		 (sort-by first)
 		 first
@@ -144,6 +94,19 @@
 	:ls (conj (vec ls) newi)
 	:softs (assoc softs newi false)
 	:ps (assoc ps newi p)))))
+
+(defn sibling [{:keys [stack objs] :as scene} selection]
+  (let [newis (take (count selection) (iterate inc (get-new-key objs)))]
+    [(assoc scene
+       :stack (into stack newis)
+       :objs (into objs (apply concat (map (fn [obj-i newi]
+                                             [[obj-i (assoc (get objs obj-i) :sibling newi)]
+                                              [newi (assoc (get objs obj-i)
+                                                      :sibling obj-i
+                                                      :steps 5)]])
+                                           (keys selection)
+                                           newis))))
+     newis]))
 
 (defn copy [{:keys [stack objs] :as scene} selection]
   (let [newis (take (count selection) (iterate inc (get-new-key objs)))]

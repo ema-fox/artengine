@@ -39,15 +39,30 @@
   (doseq [[i p] ps]
     (paint-handle g p)))
 
+(defn paint-sibling [g {:keys [sibling ps ls softs steps] :as x} xs]
+  (let [sib (get xs sibling)]
+    (if-not steps
+      (paint g (dissoc x :sibling) xs)
+      (doseq [foo (range steps)]
+        (paint g (assoc (dissoc x :sibling)
+                   :ps (into {} (map (fn [ia ib]
+                                       [ia (avg-point (get (:ps sib) ib) (get ps ia) (/ foo steps))])
+                                     ls
+                                     (:ls sib))))
+               xs)))))
+
 (defmethod paint :path
-  [g {:keys [ps ls closed clip fill-color line-color line-width] :as x} xs]
-  (when fill-color
-    (set-color g fill-color)
-    (.fill g (get-polygon x xs)))
-  (when line-color
-    (set-stroke-width g line-width)
-    (set-color g line-color)
-    (.draw g (get-polygon x xs))))
+  [g {:keys [ps ls closed clip fill-color line-color line-width sibling] :as x} xs]
+  (if sibling
+    (paint-sibling g x xs)
+    (do
+      (when fill-color
+        (set-color g fill-color)
+        (.fill g (get-polygon x xs)))
+      (when line-color
+        (set-stroke-width g line-width)
+        (set-color g line-color)
+        (.draw g (get-polygon x xs))))))
 
 (defmethod paint :sketch
   [g {:keys [ps size]} xs]
@@ -63,24 +78,6 @@
 	    d (dvec<-avec [c size])]
 	    (.add a (Area. (polygon (plus pa d) (plus pb d) (minus pb d) (minus pa d))))))
     (draw g a (style :background (color 0 0 0 30)))))
-
-(defmethod paint :interpolation
-  [g {:keys [ps las lbs steps softs] :as x} xs]
-  (doseq [foo (range steps)]
-    (paint g (assoc (dissoc x :las :lbs)
-               :type :path
-               :ps (into {} (map (fn [ia ib i]
-                                   [i (avg-point (get ps ia) (get ps ib) (/ foo (dec steps)))])
-                                 las
-                                 lbs
-                                 (range)))
-               :softs (into {} (map (fn [ia ib i]
-                                      [i (or (get softs ia) (get softs ib))])
-                                    las
-                                    lbs
-                                    (range)))
-               :ls (take (count las) (range)))
-           xs)))
 
 (defn paint-sel [g x color xs]
   (paint g (dissoc (assoc x :line-color color :line-width 1) :clip :fill-color) xs))

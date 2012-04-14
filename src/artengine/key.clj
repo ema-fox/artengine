@@ -71,10 +71,11 @@
     (ref-set action :normal)))
 
 (defkey [KeyEvent/VK_W]
-  (let [[newscene newselection] (interpolate @scene @selection)]
+  (let [[newscene newselection] (sibling @scene @selection)]
     (ref-set scene newscene)
-    (ref-set selection newselection)
-    (ref-set mode :mesh)
+    (ref-set selection (into {} (map (fn [i] [i #{}])
+                                     newselection)))
+    (ref-set mode :object)
     (ref-set action-start @old-mp)
     (ref-set action :move)))
 
