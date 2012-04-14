@@ -248,6 +248,13 @@
 	[a2 _] (avec<-dvec (minus p rot-p1))]
     (assoc x :ps (rotate-ps (:ps x) rot-p1 (- a2 a1)))))
 
+(defn selection-ps-avg [{:keys [objs]} selection]
+  (let [ps (for [[obj-i selis] selection
+                 [i p] (:ps (get objs obj-i))
+                 :when (selis i)]
+             p)]
+    (div (reduce plus ps) (count ps))))
+
 (defn selection-avg [{:keys [objs]} selection]
   (let [ps (for [obj-i (keys selection)
                  [i p] (:ps (get objs obj-i))]
@@ -257,6 +264,18 @@
 (defn rotate-objs [scene selection pa pb]
   (rotate-tool scene selection (selection-avg scene selection) pa pb))
 
+(deftool scale-ps-tool [origin factor]
+  (assoc x :ps (into (:ps x) (map (fn [i]
+                                    [i (plus origin (mult (minus (get (:ps x) i) origin) factor))])
+                                  selis))))
+
+(defn scale-factor [origin pa pb]
+  (/ (distance origin pb) (distance origin pa)))
+
+(defn scale-ps [scene selection pa pb]
+  (let [origin (selection-ps-avg scene selection)]
+    (scale-ps-tool scene selection origin (scale-factor origin pa pb))))
+
 (deftool scale-tool [origin factor]
   (assoc x :ps (into {} (mapmap (fn [i p]
                                   (plus origin (mult (minus p origin) factor)))
@@ -264,7 +283,7 @@
 
 (defn scale-objs [scene selection pa pb]
   (let [origin (selection-avg scene selection)]
-    (scale-tool scene selection origin (/ (distance origin pb) (distance origin pa)))))
+    (scale-tool scene selection origin (scale-factor origin pa pb))))
 
 (deftool scale-steps-tool [origin factor]
   (if (:steps x)
@@ -274,7 +293,7 @@
 
 (defn scale-steps [scene selection pa pb]
   (let [origin (selection-avg scene selection)]
-    (scale-steps-tool scene selection origin (/ (distance origin pb) (distance origin pa)))))
+    (scale-steps-tool scene selection origin (scale-factor origin pa pb))))
 
 (defn move-down [stack sel-objs]
   (loop [s stack

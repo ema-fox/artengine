@@ -104,7 +104,9 @@
 	       :rot
 	       (rotate-objs @scene @selection @action-start @old-mp)
                :scale
-               (scale-objs @scene @selection @action-start @old-mp)
+               (if (= @mode :object)
+                 (scale-objs @scene @selection @action-start @old-mp)
+                 (scale-ps @scene @selection @action-start @old-mp))
                :scale-steps
                (scale-steps @scene @selection @action-start @old-mp)
 	       :append
@@ -307,7 +309,9 @@
 	   (ref-set action :normal))
          :scale
          (do
-           (act scale-objs @action-start p)
+           (if (= @mode :object)
+             (act scale-objs @action-start p)
+             (act scale-ps @action-start p))
            (ref-set action :normal))
          :scale-steps
          (do
