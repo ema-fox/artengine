@@ -2,6 +2,12 @@
   (:use [artengine.util]
 	[clojure.set]))
 
+(def actions (ref {}))
+
+(defmacro defact [name body]
+  `(dosync
+    (alter actions assoc ~name (fn ~'[scene selection pa pb] ~body))))
+
 (defmacro deftool [name args body]
   `(defn ~name [{:keys [~'stack ~'objs] :as ~'scene} ~'selection ~@args]
      (assoc ~'scene
@@ -197,6 +203,9 @@
 (deftool move [movement]
   (move-ps x movement selis))
 
+(defact [:move :mesh]
+  (move scene selection (minus pb pa)))
+
 (deftool soft []
   (assoc x :softs (into (:softs x) (map (fn [i]
 					  [i true])
@@ -214,6 +223,9 @@
 
 (deftool move-objs [movement]
   (move-obj x movement))
+
+(defact [:move :object]
+  (move-objs scene selection (minus pb pa)))
 
 (deftool delete-clip []
   (dissoc x :clip))
@@ -261,7 +273,7 @@
              p)]
     (div (reduce plus ps) (count ps))))
 
-(defn rotate-objs [scene selection pa pb]
+(defact [:rot :object]
   (rotate-tool scene selection (selection-avg scene selection) pa pb))
 
 (deftool scale-ps-tool [origin factor]
@@ -272,7 +284,7 @@
 (defn scale-factor [origin pa pb]
   (/ (distance origin pb) (distance origin pa)))
 
-(defn scale-ps [scene selection pa pb]
+(defact [:scale :mesh]
   (let [origin (selection-ps-avg scene selection)]
     (scale-ps-tool scene selection origin (scale-factor origin pa pb))))
 
@@ -281,7 +293,7 @@
                                   (plus origin (mult (minus p origin) factor)))
                                 (:ps x)))))
 
-(defn scale-objs [scene selection pa pb]
+(defact [:scale :object]
   (let [origin (selection-avg scene selection)]
     (scale-tool scene selection origin (scale-factor origin pa pb))))
 
@@ -291,7 +303,7 @@
       :steps (max 2 (int (* factor (+ 0.5 (:steps x))))))
     x))
 
-(defn scale-steps [scene selection pa pb]
+(defact [:scale-steps :object]
   (let [origin (selection-avg scene selection)]
     (scale-steps-tool scene selection origin (scale-factor origin pa pb))))
 

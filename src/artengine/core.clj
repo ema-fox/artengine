@@ -92,27 +92,16 @@
 	 (-> (condp = @action
                :extend
 	       (first (extend-objs @scene (keys @selection) @old-mp))
-	       :move
-	       (let [movement (minus @old-mp @action-start)]
-		 (if (= @mode :mesh)
-		   (move @scene @selection movement)
-		   (move-objs @scene @selection movement)))
-	       :new-sketch
+               :new-sketch
 	       (new-sketch @scene @old-mp)
 	       :end-sketch
 	       (end-sketch @scene @selection @old-mp)
-	       :rot
-	       (rotate-objs @scene @selection @action-start @old-mp)
-               :scale
-               (if (= @mode :object)
-                 (scale-objs @scene @selection @action-start @old-mp)
-                 (scale-ps @scene @selection @action-start @old-mp))
-               :scale-steps
-               (scale-steps @scene @selection @action-start @old-mp)
 	       :append
 	       (let [obj-i (first (keys @selection))]
 		 (assoc-in @scene [:objs obj-i] (append (get-in @scene [:objs obj-i]) @old-mp (/ (selection-dist) 2))))
-	       @scene)
+               (if-let [af (@actions [@action @mode])]
+                 (af @scene @selection @action-start @old-mp)
+                 @scene))
 	     (transform @trans))]
      (doseq [i stack
 	     :let [x (get objs i)]]
@@ -168,12 +157,6 @@
 					(if (.isControlDown e) [:ctrl] [])))]
      (f)))
   (repaint! can))
-
-(defn do-move [movement]
-  (dosync
-   (if (= @mode :mesh)
-     (act move movement)
-     (act move-objs movement))))
 
 (defn do-drag [movement]
   (alter trans assoc 1 (plus movement (get @trans 1))))
@@ -303,25 +286,7 @@
      (condp = (.getButton e)
 	 MouseEvent/BUTTON1
        (condp = @action
-         :rot
-	 (do
-	   (act rotate-objs @action-start p)
-	   (ref-set action :normal))
-         :scale
-         (do
-           (if (= @mode :object)
-             (act scale-objs @action-start p)
-             (act scale-ps @action-start p))
-           (ref-set action :normal))
-         :scale-steps
-         (do
-           (act scale-steps @action-start p)
-           (ref-set action :normal))
-	 :move
-	 (do
-	   (do-move (minus p @action-start))
-	   (ref-set action :normal))
-	 :clip
+         :clip
 	 (do-clip p)
 	 :pick-style
 	 (do-pick-style p)
@@ -331,7 +296,9 @@
 	     (do-select p shift)
 	     (do-select @action-start p shift))
 	   (ref-set action :normal))
-	 nil)
+	 (when-let [af (@actions [@action @mode])]
+           (alter scene af @selection @action-start p)
+           (ref-set action :normal)))
        MouseEvent/BUTTON2
        (ref-set dragging false)
        MouseEvent/BUTTON3
