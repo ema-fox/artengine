@@ -142,6 +142,6 @@
   (prn x)
   x)
 
-(defn get-color []
-  (if-let [color (choose-color)]
-    [(.getRed color) (.getGreen color) (.getBlue color) (.getAlpha color)]))
+(defn get-color [c1]
+  (if-let [c2 (choose-color :color (apply color c1))]
+    [(.getRed c2) (.getGreen c2) (.getBlue c2) (.getAlpha c2)]))

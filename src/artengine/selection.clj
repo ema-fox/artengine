@@ -3,11 +3,11 @@
 
 (defn obj-near?
   "determines if x is near or under p"
-  [{:keys [closed] :as x} p xs dist]
+  [{:keys [fill-color] :as x} p xs dist]
   (or (some (fn [[pa pb]]
 	      (< (line-p-distance pa pb p) dist))
 	    (get-lines x))
-      (when closed
+      (when fill-color
 	(shape-contains (get-polygon x xs) p))))
 
 (defn select-obj [{:keys [objs stack]} mp dist]
