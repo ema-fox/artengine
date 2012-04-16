@@ -251,6 +251,13 @@
         [a2 _] (avec<-dvec (minus pb origin))]
     (- a2 a1)))
 
+(deftool rotate-ps-tool [origin factor]
+  (assoc x
+    :ps (into (:ps x) (map (fn [i]
+                             [i (plus origin (dvec<-avec (let [[a dist] (avec<-dvec (minus (get (:ps x) i) origin))]
+                                                           [(+ a factor) dist])))])
+                           selis))))
+
 (deftool rotate-tool [origin factor]
   (assoc x
     :ps (into {} (mapmap (fn [i p]
@@ -264,6 +271,10 @@
                  :when (selis i)]
              p)]
     (div (reduce plus ps) (count ps))))
+
+(defact [:rot :mesh]
+  (let [origin (selection-ps-avg scene selection)]
+    (rotate-ps-tool scene selection origin (rotate-factor origin pa pb))))
 
 (defn selection-avg [{:keys [objs]} selection]
   (let [ps (for [obj-i (keys selection)
