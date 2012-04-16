@@ -96,6 +96,10 @@
 	       (new-sketch @scene @old-mp)
 	       :end-sketch
 	       (end-sketch @scene @selection @old-mp)
+               :clip
+               (if-let [clip (first (keys (select-obj @scene @old-mp (selection-dist))))]
+                 (set-clip @scene @selection clip)
+                 @scene)
 	       :append
 	       (let [obj-i (first (keys @selection))]
 		 (assoc-in @scene [:objs obj-i] (append (get-in @scene [:objs obj-i]) @old-mp (/ (selection-dist) 2))))
