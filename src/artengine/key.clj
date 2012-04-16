@@ -28,8 +28,7 @@
 
 (defkey [KeyEvent/VK_C]
   (if-let [color (get-color (or (->> (keys @selection)
-                                     (map #(:fill-color (get (:objs @scene) %)))
-                                     (filter identity)
+                                     (keep #(:fill-color (get (:objs @scene) %)))
                                      first)
                                 [0 0 0 255]))]
 
@@ -40,8 +39,7 @@
 
 (defkey [KeyEvent/VK_L]
   (if-let [color (get-color (or (->> (keys @selection)
-                                     (map #(:line-color (get (:objs @scene) %)))
-                                     (filter identity)
+                                     (keep #(:line-color (get (:objs @scene) %)))
                                      first)
                                 [0 0 0 255]))]
     (act set-border-color color)))
