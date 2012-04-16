@@ -246,19 +246,17 @@
   (let [master (get objs masteri)]
     (merge (dissoc x :line-width :line-color :fill-color) (select-keys master [:line-width :line-color :fill-color]))))
 
-(defn rotate-ps [ps pa rot]
-  (let [foops (mapmap (fn [i p]
-			(let [[a dist] (avec<-dvec (minus p pa))]
-			  [(+ a rot) dist]))
-		      ps)]
-    (into {} (mapmap (fn [i p]
-		       (plus pa (dvec<-avec p)))
-		     foops))))
+(defn rotate-factor [origin pa pb]
+  (let [[a1 _] (avec<-dvec (minus pa origin))
+        [a2 _] (avec<-dvec (minus pb origin))]
+    (- a2 a1)))
 
-(deftool rotate-tool [rot-p1 rot-p2 p]
-  (let [[a1 _] (avec<-dvec (minus rot-p2 rot-p1))
-	[a2 _] (avec<-dvec (minus p rot-p1))]
-    (assoc x :ps (rotate-ps (:ps x) rot-p1 (- a2 a1)))))
+(deftool rotate-tool [origin factor]
+  (assoc x
+    :ps (into {} (mapmap (fn [i p]
+                           (let [[a dist] (avec<-dvec (minus p origin))]
+                             (plus origin (dvec<-avec [(+ a factor) dist]))))
+                         (:ps x)))))
 
 (defn selection-ps-avg [{:keys [objs]} selection]
   (let [ps (for [[obj-i selis] selection
@@ -274,7 +272,8 @@
     (div (reduce plus ps) (count ps))))
 
 (defact [:rot :object]
-  (rotate-tool scene selection (selection-avg scene selection) pa pb))
+  (let [origin (selection-avg scene selection)]
+    (rotate-tool scene selection origin (rotate-factor origin pa pb))))
 
 (deftool scale-ps-tool [origin factor]
   (assoc x :ps (into (:ps x) (map (fn [i]
