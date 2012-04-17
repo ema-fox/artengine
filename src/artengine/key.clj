@@ -18,7 +18,9 @@
   (if (= @mode :mesh)
     (do
       (act delete)
-      (ref-set selection (into {} (mapmap (constantly #{}) @selection))))
+      (ref-set selection (into {} (keep #(if (get (:objs @scene) %)
+                                           [% #{}])
+                                        (keys @selection)))))
     (do
       (act delete-objs)
       (ref-set selection {}))))

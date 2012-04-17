@@ -3,6 +3,7 @@
   (:use [artengine util edit selection polygon var key]
 	[seesaw [core :exclude [select action selection]] graphics color chooser]
 	[clojure set stacktrace]
+        [clj-stacktrace repl]
 	[clojure.java.io :exclude [copy]])
   (:import [java.awt.event KeyEvent MouseEvent]
 	   [javax.imageio ImageIO]
@@ -86,6 +87,7 @@
   (/ 20 (first @trans)))
 
 (defn render [c g]
+  (try
   (dosync
    (set-stroke-width g 1)
    (let [{:keys [stack objs] :as disp-scene}
@@ -128,7 +130,11 @@
      (draw-rect g (transform-p @action-start @trans) (transform-p @old-mp @trans)))
    (set-color g [0 0 0 255])
    (.drawString g (str @mode) 10 20)
-   (.drawString g (str @action) 10 40)))
+   (.drawString g (str @action) 10 40))
+  (catch Exception e
+    (prn @scene @mode @action @selection @action-start @old-mp @trans)
+    (pst+ e)
+    (System/exit 0))))
 
 (defn export [path]
   (let [img (BufferedImage. 1000 1000 BufferedImage/TYPE_INT_ARGB)
