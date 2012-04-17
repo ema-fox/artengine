@@ -114,14 +114,24 @@
                                            newis))))
      newis]))
 
+(defn copy-helper [{:keys [sibling clip] :as x} foo]
+  (let [newx (if-let [bla (get foo sibling)]
+               (assoc x
+                 :sibling bla)
+               x)]
+    (if-let [bla (get foo clip)]
+      (assoc newx
+        :clip bla)
+      newx)))
+
 (defn copy [{:keys [stack objs] :as scene} selection]
-  (let [newis (take (count selection) (iterate inc (get-new-key objs)))]
+  (let [newis (take (count selection) (iterate inc (get-new-key objs)))
+        foo (into {} (map vector (keys selection) newis))]
     [(assoc scene
        :stack (into stack newis)
-       :objs (into objs (map (fn [obj-i newi]
-			       [newi (get objs obj-i)])
-			     (keys selection)
-			     newis)))
+       :objs (into objs (map (fn [[obj-i newi]]
+			       [newi (copy-helper (get objs obj-i) foo)])
+                             foo)))
      newis]))
 
 (defn new-obj [{:keys [stack objs] :as scene} p]
