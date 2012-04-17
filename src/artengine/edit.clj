@@ -128,7 +128,7 @@
   (let [newis (take (count selection) (iterate inc (get-new-key objs)))
         foo (into {} (map vector (keys selection) newis))]
     [(assoc scene
-       :stack (into stack newis)
+       :stack (into stack (keep #(get foo %) stack))
        :objs (into objs (map (fn [[obj-i newi]]
 			       [newi (copy-helper (get objs obj-i) foo)])
                              foo)))
