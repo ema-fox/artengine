@@ -157,6 +157,12 @@
     :ps (assoc (:ps x) 2 p)
     :ls (conj (:ls x) 2)))
 
+(deftool close []
+  (assoc x :closed true))
+
+(deftool unclose []
+  (assoc x :closed false))
+
 (deftool adjust-line [amount]
   (if (= (:type x) :sketch)
     (assoc x

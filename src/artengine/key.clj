@@ -44,6 +44,12 @@
                                 [0 0 0 255]))]
     (act set-border-color color)))
 
+(defkey [KeyEvent/VK_O]
+  (act close))
+
+(defkey [KeyEvent/VK_O :shift]
+  (act unclose))
+
 (defkey [KeyEvent/VK_U]
   (act soft))
 
