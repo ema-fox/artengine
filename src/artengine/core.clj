@@ -3,8 +3,7 @@
   (:use [artengine util edit selection polygon var key]
 	[seesaw [core :exclude [select action selection]] graphics color chooser]
 	[clojure set stacktrace]
-        [clj-stacktrace repl]
-	[clojure.java.io :exclude [copy]])
+        [clojure.java.io :exclude [copy]])
   (:import [java.awt.event KeyEvent MouseEvent]
 	   [javax.imageio ImageIO]
 	   [java.awt.geom Area]
@@ -56,14 +55,14 @@
   [g {:keys [ps ls closed clip fill-color line-color line-width sibling] :as x} xs]
   (if sibling
     (paint-sibling g x xs)
-    (do
-      (when fill-color
-        (set-color g fill-color)
-        (.fill g (get-polygon x xs)))
-      (when line-color
-        (set-stroke-width g line-width)
-        (set-color g line-color)
-        (.draw g (get-polygon x xs))))))
+    (draw g (get-polygon x xs)
+          (style :background (if fill-color
+                               (apply color fill-color))
+                 :foreground (if line-color
+                               (apply color line-color))
+                 :stroke (stroke :width line-width
+                                 :cap :round
+                                 :join :round)))))
 
 (defmethod paint :sketch
   [g {:keys [ps size]} xs]
@@ -133,7 +132,7 @@
    (.drawString g (str @action) 10 40))
   (catch Exception e
     (prn @scene @mode @action @selection @action-start @old-mp @trans)
-    (pst+ e)
+    (print-cause-trace e)
     (System/exit 0))))
 
 (defn export [path]
