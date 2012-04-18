@@ -24,8 +24,6 @@
    (ref-set file-path path)
    (ref-set scene (read-string (slurp path)))))
 
-(defmulti paint (fn [g x objs] (:type x)))
-
 (defn paint-handle [g p]
   (set-color g [255 255 255 255])
   (fill-rect g (minus p [1 1]) [3 3])
@@ -39,6 +37,8 @@
   (doseq [[i p] ps]
     (paint-handle g p)))
 
+(declare paint)
+
 (defn paint-sibling [g {:keys [sibling ps ls softs steps] :as x} xs]
   (let [sib (get xs sibling)]
     (if-not steps
@@ -51,8 +51,7 @@
                                      (:ls sib))))
                xs)))))
 
-(defmethod paint :path
-  [g {:keys [ps ls closed clip fill-color line-color line-width sibling] :as x} xs]
+(defn paint [g {:keys [ps ls closed clip fill-color line-color line-width sibling] :as x} xs]
   (if sibling
     (paint-sibling g x xs)
     (draw g (get-polygon x xs)
@@ -63,21 +62,6 @@
                  :stroke (stroke :width line-width
                                  :cap :round
                                  :join :round)))))
-
-(defmethod paint :sketch
-  [g {:keys [ps size]} xs]
-  (let [[a b] (for [[i [p0 p1]] ps]
-		(Area. (circle p0 p1 size)))]
-    (when b
-      (.add a b)
-      (let [pa (get ps 1)
-	    pb (get ps 2)
-	    c (->> (direction pa pb)
-		   arc<-dir
-		   (+ (/ tau 4)))
-	    d (dvec<-avec [c size])]
-	    (.add a (Area. (polygon (plus pa d) (plus pb d) (minus pb d) (minus pa d))))))
-    (draw g a (style :background (color 0 0 0 30)))))
 
 (defn paint-sel [g x color xs]
   (paint g (dissoc (assoc x :line-color color :line-width 1) :clip :fill-color) xs))

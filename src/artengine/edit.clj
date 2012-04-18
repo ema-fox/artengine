@@ -41,10 +41,7 @@
 	       (plus pd (direction pd pe))))]
     (distance p pf)))
 
-(defmulti extend-obj (fn [x p retf] (:type x)))
-
-(defmethod extend-obj :path
-  [{:keys [ps ls closed softs] :as x} p retfn]
+(defn extend-obj [{:keys [ps ls closed softs] :as x} p retfn]
   (map (fn [[ia ib] i]
 	 [(let [pa (get ps ia)
                 pb (get ps ib)]
@@ -142,14 +139,13 @@
 			      :ls [1]
 			      :closed false
 			      :line-color [0 0 0 255]
-			      :line-width 1
-			      :type :path})
+			      :line-width 1})
       :stack (conj stack newi))))
 
 (defn new-sketch [{:keys [stack objs] :as scene} p]
   (let [newi (get-new-key objs)]
     (assoc scene
-      :objs (assoc objs newi {:ps {1 p} :ls [1] :type :sketch :size 20})
+      :objs (assoc objs newi {:ps {1 p} :ls [1] :line-width 20 :line-color [0 0 0 30]})
       :stack (conj stack newi))))
 
 (deftool end-sketch [p]
@@ -164,11 +160,8 @@
   (assoc x :closed false))
 
 (deftool adjust-line [amount]
-  (if (= (:type x) :sketch)
-    (assoc x
-      :size (* (:size x) (Math/pow 0.9 amount)))
-    (assoc x
-      :line-width (* (:line-width x) (Math/pow 0.9 amount)))))
+  (assoc x
+    :line-width (* (:line-width x) (Math/pow 0.9 amount))))
 
 (defn fix-obj [{:keys [decos] :as x} xs]
   (let [newdecos (filter #(get xs %) decos)]
