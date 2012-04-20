@@ -349,9 +349,8 @@
 (defn transform [{:keys [stack objs] :as scene} [scale :as transformation]]
   (assoc scene
     :objs (into {} (mapmap (fn [obj-i x]
-			     (assoc (if (= (:type x) :sketch)
-				      (assoc x :size (* scale (:size x)))
-				      (assoc x :line-width (* scale (:line-width x))))
+			     (assoc x
+                               :line-width (* scale (:line-width x))
 			       :ps (into {} (mapmap (fn [i p]
 						      (transform-p p transformation))
 						    (:ps x)))))

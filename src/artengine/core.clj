@@ -1,15 +1,24 @@
 (ns artengine.core
   (:gen-class)
-  (:use [artengine util edit selection polygon var key]
+  (:use [artengine util edit selection polygon key mouse]
 	[seesaw [core :exclude [select action selection]] graphics color chooser]
-	[clojure set stacktrace]
+	[clojure stacktrace]
         [clojure.java.io :exclude [copy]])
   (:import [java.awt.event KeyEvent MouseEvent]
 	   [javax.imageio ImageIO]
 	   [java.awt.geom Area]
 	   [java.awt.image BufferedImage]))
 
-(def trans (ref [1 [0 0]]))
+(def rstate (ref {:scene {:objs {} :stack []}
+                  :selection {}
+                  :action-start nil
+                  :mode :object
+                  :action :normal
+                  :trans [1 [0 0]]}))
+
+(def old-mp (ref [0 0]))
+
+(def file-path (ref nil))
 
 (def dragging (ref false))
 
@@ -66,86 +75,17 @@
 (defn paint-sel [g x color xs]
   (paint g (dissoc (assoc x :line-color color :line-width 1) :clip :fill-color) xs))
 
-(defn selection-dist []
-  (/ 20 (first @trans)))
-
-(defmulti mp (fn [{:keys [action]} _]
-               action))
-
-(defmulti md (fn [{:keys [action]} _]
-               action))
-
-(defmethod md :default [state _]
-  state)
-
-(defmethod md :extend [{:keys [scene selection] :as state} p]
-  (let [[newscene [obj-i i]] (extend-objs scene (keys selection) p)]
-    (assoc state
-      :scene newscene
-      :selection (into {} (mapmap (fn [obj-ib _]
-                                    (if (= obj-ib obj-i)
-                                      #{i}
-                                      #{}))
-                                  selection))
-      :action :move
-      :action-start p)))
-
-(defmethod mp :new-sketch [{:keys [scene] :as state} p]
-  (let [newscene (new-sketch scene p)]
-    (assoc state
-      :scene newscene
-      :selection {(last (:stack newscene)) #{}}
-      :action :end-sketch)))
-
-(defmethod mp :new-obj [{:keys [scene] :as state} p]
-  (let [newscene (new-obj scene p)]
-    (assoc state
-      :scene newscene
-      :selection {(last (:stack newscene)) #{}}
-      :action :append)))
-
-(defmethod mp :end-sketch [{:keys [scene selection] :as state} p]
-  (assoc state
-    :scene (end-sketch scene selection p)
-    :action :normal))
-
-(defmethod mp :clip [{:keys [scene selection] :as state} p]
-  (assoc (if-let [clip (first (keys (select-obj scene p (selection-dist))))]
-           (assoc state :scene (set-clip scene selection clip))
-           state)
-    :action :normal))
-
-(defmethod mp :pick-style [{:keys [scene selection] :as state} p]
-  (assoc (if-let [master (first (keys (select-obj scene p (selection-dist))))]
-           (assoc state :scene (pick-style scene selection master))
-           state)
-    :action :normal))
-
-(defmethod mp :append [{:keys [scene selection] :as state} p]
-  (let [obj-i (first (keys selection))
-	x (append (get (:objs scene) obj-i) p (/ (selection-dist) 2))]
-    (assoc-in (if (:closed x)
-                (assoc state :action :normal)
-                state)
-              [:scene :objs obj-i] x)))
-
-(defmethod mp :default [{:keys [scene selection action mode action-start] :as state} p]
-  (if-let [af (@actions [action mode])]
-    (assoc state
-      :scene (af scene selection action-start p)
-      :action :normal)
-    state))
-
 (defn render [c g]
   (try
   (dosync
    (set-stroke-width g 1)
-   (let [{:keys [stack objs] :as scene} (transform (:scene (mp (md @rstate @old-mp) @old-mp)) @trans)]
+   (let [{:keys [stack objs] :as scene} (transform (:scene (mp (md @rstate @old-mp) @old-mp))
+                                                   (:trans @rstate))]
      (doseq [i stack
 	     :let [x (get objs i)]]
        (paint g x objs))
      (if (= (:mode @rstate) :object)
-       (if-let [sel (get objs (first (keys (select-obj scene (transform-p @old-mp @trans) 20))))]
+       (if-let [sel (get objs (first (keys (select-obj scene (transform-p @old-mp (:trans @rstate)) 20))))]
 	 (paint-sel g sel [200 0 200 255] objs)))
      (doseq [obj-i (keys (:selection @rstate)) :let [x (get objs obj-i)]]
        (if (= (:mode @rstate) :mesh)
@@ -159,12 +99,13 @@
 	 (paint-solid-handle g p))))
    (set-stroke-width g 1)
    (if (= (:action @rstate) :select)
-     (draw-rect g (transform-p (:action-start @rstate) @trans) (transform-p @old-mp @trans)))
+     (draw-rect g (transform-p (:action-start @rstate) (:trans @rstate))
+                (transform-p @old-mp (:trans @rstate))))
    (set-color g [0 0 0 255])
    (.drawString g (str (:mode @rstate)) 10 20)
    (.drawString g (str (:action @rstate)) 10 40))
   (catch Exception e
-    (prn @rstate @old-mp @trans)
+    (prn @rstate @old-mp)
     (print-cause-trace e)
     (System/exit 0))))
 
@@ -208,7 +149,7 @@
   (repaint! can))
 
 (defn do-drag [movement]
-  (alter trans assoc 1 (plus movement (get @trans 1))))
+  (alter rstate assoc-in [:trans 1] (plus movement (get-in @rstate [:trans 1]))))
 
 (defn handle-move [mp]
   (dosync
@@ -218,49 +159,15 @@
   (repaint! can))
 
 (defn mouse-moved [e]
-  (handle-move (get-pos e @trans)))
+  (handle-move (get-pos e (:trans @rstate))))
 
 (defn do-adjust-line [amount]
   (dosync
    (alter rstate act adjust-line amount)))
 
-(defn xunion [a b]
-  (difference (union a b) (intersection a b)))
-
-(defmethod mp :select [{:keys [scene selection mode shift action-start] :as state} p]
-  (assoc state
-    :selection (if (< (distance p action-start) (* 0.25 (selection-dist)))
-                 (if (= mode :mesh)
-                   (merge-with xunion
-                               (select-ps scene selection p (selection-dist))
-                               (if shift
-                                 selection
-                                 {}))
-                   (let [new-selction (select-obj scene p (selection-dist))]
-                     (merge (apply dissoc new-selction (keys selection))
-                            (if shift
-                              (apply dissoc selection (keys new-selction))
-                              {}))))
-                 (if (= mode :mesh)
-                   (merge-with union
-                               (rect-select scene selection action-start p)
-                               (if shift
-                                 selection
-                                 {}))
-                   (merge (rect-select-obj scene action-start p)
-                          (if shift
-                            selection
-                            {}))))
-    :action :normal))
-
-(defmethod md :normal [state p]
-  (assoc state
-    :action :select
-    :action-start p))
-
 (defn mouse-pressed [e]
   (dosync
-   (let [p (get-pos e @trans)]
+   (let [p (get-pos e (:trans @rstate))]
      (condp = (.getButton e)
        MouseEvent/BUTTON1
        (alter rstate md p)
@@ -270,7 +177,7 @@
 
 (defn mouse-released [e]
   (dosync
-   (let [p (get-pos e @trans)]
+   (let [p (get-pos e (:trans @rstate))]
      (condp = (.getButton e)
        MouseEvent/BUTTON1
        (alter rstate (fn [state] (dissoc (mp (assoc state :shift (.isShiftDown e))
@@ -287,7 +194,7 @@
   (dosync
    (if (.isShiftDown e)
      (do-adjust-line (.getWheelRotation e))
-     (alter trans assoc 0 (* (get @trans 0) (Math/pow 0.9 (.getWheelRotation e))))))
+     (alter rstate assoc-in [:trans 0] (* (get-in @rstate [:trans 0]) (Math/pow 0.9 (.getWheelRotation e))))))
   (repaint! can))
 
 (defn -main []
