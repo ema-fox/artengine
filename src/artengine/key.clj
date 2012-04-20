@@ -1,122 +1,129 @@
 (ns artengine.key
-  (:use [artengine util edit var])
+  (:use [artengine util edit])
   (:import [java.awt.event KeyEvent]))
 
-(def key-actions (ref {}))
+(defmulti kp (fn [key state p] key))
 
-(defmacro defkey [key & body]
-  `(dosync
-    (alter key-actions assoc ~key (fn [] ~@body))))
+(defn act [state f & args]
+  (assoc state
+    :scene (apply f (:scene state) (:selection state) args)))
 
-(defn act [f & args]
-  (apply alter scene f @selection args))
+(defmethod kp [KeyEvent/VK_Q] [_ state _]
+  (assoc state :action :new-sketch))
 
-(defkey [KeyEvent/VK_Q]
-  (ref-set action :new-sketch))
+(defmethod kp [KeyEvent/VK_DELETE] [_ {:keys [scene selection mode] :as state} _]
+  (if (= mode :mesh)
+    (let [newscene (delete scene selection)]
+      (assoc state
+        :scene newscene
+        :selection (into {} (keep #(if (get (:objs newscene) %)
+                                     [% #{}])
+                                  (keys selection)))))
+    (assoc state
+      :scene (delete-objs scene selection)
+      :selection {})))
 
-(defkey [KeyEvent/VK_DELETE]
-  (if (= @mode :mesh)
-    (do
-      (act delete)
-      (ref-set selection (into {} (keep #(if (get (:objs @scene) %)
-                                           [% #{}])
-                                        (keys @selection)))))
-    (do
-      (act delete-objs)
-      (ref-set selection {}))))
+(defmethod kp [KeyEvent/VK_C :shift] [_ state _]
+  (act state delete-color))
 
-(defkey [KeyEvent/VK_C :shift]
-  (act delete-color))
-
-(defkey [KeyEvent/VK_C]
-  (if-let [color (get-color (or (->> (keys @selection)
-                                     (keep #(:fill-color (get (:objs @scene) %)))
+(defmethod kp [KeyEvent/VK_C] [_ {:keys [scene selection] :as state} _]
+  (if-let [color (get-color (or (->> (keys selection)
+                                     (keep #(:fill-color (get (:objs scene) %)))
                                      first)
                                 [0 0 0 255]))]
 
-    (act set-objs-color color)))
+    (act state set-objs-color color)
+    state))
 
-(defkey [KeyEvent/VK_L :shift]
-  (act delete-border))
+(defmethod kp [KeyEvent/VK_L :shift] [_ state _]
+  (act state delete-border))
 
-(defkey [KeyEvent/VK_L]
-  (if-let [color (get-color (or (->> (keys @selection)
-                                     (keep #(:line-color (get (:objs @scene) %)))
+(defmethod kp [KeyEvent/VK_L] [_ {:keys [scene selection] :as state} _]
+  (if-let [color (get-color (or (->> (keys selection)
+                                     (keep #(:line-color (get (:objs scene) %)))
                                      first)
                                 [0 0 0 255]))]
-    (act set-border-color color)))
+    (act state set-border-color color)
+    state))
 
-(defkey [KeyEvent/VK_O]
-  (act close))
+(defmethod kp [KeyEvent/VK_O] [_ state _]
+  (act state close))
 
-(defkey [KeyEvent/VK_O :shift]
-  (act unclose))
+(defmethod kp [KeyEvent/VK_O :shift] [_ state _]
+  (act state unclose))
 
-(defkey [KeyEvent/VK_U]
-  (act soft))
+(defmethod kp [KeyEvent/VK_U] [_ state _]
+  (act state soft))
 
-(defkey [KeyEvent/VK_U :shift]
-  (act unsoft))
+(defmethod kp [KeyEvent/VK_U :shift] [_ state _]
+  (act state unsoft))
 
-(defkey [KeyEvent/VK_F]
-  (ref-set action :clip))
+(defmethod kp [KeyEvent/VK_F] [_ state _]
+  (assoc state :action :clip))
 
-(defkey [KeyEvent/VK_F :shift]
-  (act delete-clip))
+(defmethod kp [KeyEvent/VK_F :shift] [_ state _]
+  (act state delete-clip))
 
-(defkey [KeyEvent/VK_DOWN]
-  (alter scene move-down-stack (keys @selection)))
+(defmethod kp [KeyEvent/VK_DOWN] [_ {:keys [selection] :as state} _]
+  (act state move-down-stack (keys selection)))
 
-(defkey [KeyEvent/VK_UP]
-  (alter scene move-up-stack (keys @selection)))
+(defmethod kp [KeyEvent/VK_UP] [_ {:keys [selection] :as state} _]
+  (act state move-up-stack (keys selection)))
 
-(defkey [KeyEvent/VK_TAB]
-  (ref-set mode (if (= @mode :object)
-		  :mesh
-		  :object)))
+(defmethod kp [KeyEvent/VK_TAB] [_ {:keys [mode] :as state} _]
+  (assoc state
+    :mode (if (= mode :object)
+            :mesh
+            :object)))
 
-(defkey [KeyEvent/VK_E]
-  (if (= @mode :mesh) 		;todo handle append
-    (ref-set action :extend)))
+(defmethod kp [KeyEvent/VK_E] [_ {:keys [mode] :as state} _]
+  (if (= mode :mesh) 		;todo handle append
+    (assoc state :action :extend)
+    state))
 
-(defkey [KeyEvent/VK_SPACE]
-  (ref-set mode :mesh)
-  (if (= @action :normal)
-    (ref-set action :new-obj)
-    (ref-set action :normal)))
+(defmethod kp [KeyEvent/VK_SPACE] [_ {:keys [action] :as state} _]
+  (assoc state
+    :mode :mesh
+    :action :new-obj))
 
-(defkey [KeyEvent/VK_W]
-  (let [[newscene newselection] (sibling @scene @selection)]
-    (ref-set scene newscene)
-    (ref-set selection (into {} (map (fn [i] [i #{}])
-                                     newselection)))
-    (ref-set mode :object)
-    (ref-set action-start @old-mp)
-    (ref-set action :move)))
+(defmethod kp [KeyEvent/VK_W] [_ {:keys [scene selection] :as state} p]
+  (let [[newscene newselection] (sibling scene selection)]
+    (assoc state
+      :scene newscene
+      :selection (into {} (map (fn [i] [i #{}])
+                               newselection))
+      :mode :object
+      :action-start p
+      :action :move)))
 
-(defkey [KeyEvent/VK_D]
-  (let [[newscene newselection] (copy @scene @selection)]
-    (ref-set scene newscene)
-    (ref-set selection (into {} (map (fn [i] [i #{}])
-				     newselection)))
-    (ref-set action-start @old-mp)
-    (ref-set action :move)))
+(defmethod kp [KeyEvent/VK_D] [_ {:keys [scene selection] :as state} p]
+  (let [[newscene newselection] (copy scene selection)]
+    (assoc state
+      :scene newscene
+      :selection (into {} (map (fn [i] [i #{}])
+                               newselection))
+      :action-start p
+      :action :move)))
 
-(defkey [KeyEvent/VK_R]
-  (ref-set action :rot)
-  (ref-set action-start @old-mp))
+(defmethod kp [KeyEvent/VK_R] [_ state p]
+  (assoc state
+    :action :rot
+    :action-start p))
 
-(defkey [KeyEvent/VK_S]
-  (ref-set action :scale)
-  (ref-set action-start @old-mp))
+(defmethod kp [KeyEvent/VK_S] [_ state p]
+  (assoc state
+    :action :scale
+    :action-start p))
 
-(defkey [KeyEvent/VK_M]
-  (ref-set action :scale-steps)
-  (ref-set action-start @old-mp))
+(defmethod kp [KeyEvent/VK_M] [_ state p]
+  (assoc state
+    :action :scale-steps
+    :action-start p))
 
-(defkey [KeyEvent/VK_G]
-  (ref-set action-start @old-mp)
-  (ref-set action :move))
+(defmethod kp [KeyEvent/VK_G] [_ state p]
+  (assoc state
+    :action :move
+    :action-start p))
 
-(defkey [KeyEvent/VK_Y]
-  (ref-set action :pick-style))
+(defmethod kp [KeyEvent/VK_Y] [_ state p]
+  (assoc state :action :pick-style))

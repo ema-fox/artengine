@@ -1,13 +1,10 @@
 (ns artengine.var)
 
-(def scene (ref {:objs {} :stack []}))
-
-(def selection (ref {}))
-
-(def action-start (ref nil))
-
-(def mode (ref :object))
-(def action (ref :normal))
+(def rstate (ref {:scene {:objs {} :stack []}
+                  :selection {}
+                  :action-start nil
+                  :mode :object
+                  :action :normal}))
 
 (def old-mp (ref [0 0]))
 

@@ -67,7 +67,7 @@
   (let [newi (get-new-key ps)]
     (assoc x
       :ps (assoc ps
-            newi (avg-point (get ps (nth ls i)) (get ps (nth ls (dec i))) 0.5))
+            newi (avg-point (get ps (nth ls i)) (get ps (nth ls (mod (dec i) (count ls)))) 0.5))
       :ls (insert-at i ls newi))))
 
 (defn extend-objs [{:keys [stack objs] :as scene} obj-is p]
