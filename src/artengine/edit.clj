@@ -47,10 +47,10 @@
                 pb (get ps ib)]
             (line-p-distance pa pb p))
           (fn []
-            (let [newi (get-new-key ps)]
+             (let [newi (get-new-key ps)]
               (retfn [(assoc x
                         :ps (assoc ps newi p)
-                        :softs (assoc softs newi false)
+                        :softs (assoc softs newi (or (get softs ia) (get softs ib)))
                         :ls (insert-at i ls newi))
                       newi])))])
        (get-ilines x)
@@ -63,11 +63,13 @@
   [xs x]
   (count (take-while #(not= x %) xs)))
 
-(defn extend-sibling [{:keys [ps ls] :as x} i]
-  (let [newi (get-new-key ps)]
+(defn extend-sibling [{:keys [ps ls softs] :as x} i]
+  (let [newi (get-new-key ps)
+        ia (nth ls i)
+        ib (nth ls (mod (dec i) (count ls)))]
     (assoc x
-      :ps (assoc ps
-            newi (avg-point (get ps (nth ls i)) (get ps (nth ls (mod (dec i) (count ls)))) 0.5))
+      :ps (assoc ps newi (avg-point (get ps ia) (get ps ib) 0.5))
+      :softs (assoc softs newi (or (get softs ia) (get softs ib)))
       :ls (insert-at i ls newi))))
 
 (defn extend-objs [{:keys [stack objs] :as scene} obj-is p]
@@ -337,12 +339,12 @@
       (vec (concat res s)))))
 
 (defn move-down-stack [{:keys [stack objs] :as scene} sel-objs]
-  (assoc scene :stack (move-down stack sel-objs)))
+  (assoc scene :stack (move-down stack (keys sel-objs))))
 
 (defn move-up-stack [{:keys [stack objs] :as scene} sel-objs]
   (assoc scene :stack (-> stack
 			  reverse
-			  (move-down sel-objs)
+			  (move-down (keys sel-objs))
 			  reverse
 			  vec)))
 

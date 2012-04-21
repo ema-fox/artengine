@@ -65,10 +65,10 @@
   (act state delete-clip))
 
 (defmethod kp [KeyEvent/VK_DOWN] [_ {:keys [selection] :as state} _]
-  (act state move-down-stack (keys selection)))
+  (act state move-down-stack))
 
 (defmethod kp [KeyEvent/VK_UP] [_ {:keys [selection] :as state} _]
-  (act state move-up-stack (keys selection)))
+  (act state move-up-stack))
 
 (defmethod kp [KeyEvent/VK_TAB] [_ {:keys [mode] :as state} _]
   (assoc state
