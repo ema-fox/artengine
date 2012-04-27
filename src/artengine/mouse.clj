@@ -30,18 +30,18 @@
       :action :move
       :action-start p)))
 
-(defmethod mp :new-sketch [{:keys [scene] :as state} p]
-  (let [newscene (new-sketch scene p)]
+(defmethod mp :new-sketch [{:keys [scene selected-layer] :as state} p]
+  (let [newscene (new-sketch scene p selected-layer)]
     (assoc state
       :scene newscene
-      :selection {(last (:stack newscene)) #{}}
+      :selection {(last (get-in newscene [:layers selected-layer :stack])) #{}}
       :action :end-sketch)))
 
-(defmethod mp :new-obj [{:keys [scene] :as state} p]
-  (let [newscene (new-obj scene p)]
+(defmethod mp :new-obj [{:keys [scene selected-layer] :as state} p]
+  (let [newscene (new-obj scene p selected-layer)]
     (assoc state
       :scene newscene
-      :selection {(last (:stack newscene)) #{}}
+      :selection {(last (get-in newscene [:layers selected-layer :stack])) #{}}
       :action :append)))
 
 (defmethod mp :end-sketch [{:keys [scene selection] :as state} p]

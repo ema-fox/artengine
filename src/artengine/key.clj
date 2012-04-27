@@ -64,11 +64,17 @@
 (defmethod kp [KeyEvent/VK_F :shift] [_ state _]
   (act state delete-clip))
 
-(defmethod kp [KeyEvent/VK_DOWN] [_ {:keys [selection] :as state} _]
-  (act state move-down-stack))
+(defmethod kp [KeyEvent/VK_DOWN] [_ {:keys [selected-layer] :as state} _]
+  (act state move-down-stack selected-layer))
 
-(defmethod kp [KeyEvent/VK_UP] [_ {:keys [selection] :as state} _]
-  (act state move-up-stack))
+(defmethod kp [KeyEvent/VK_UP] [_ {:keys [selected-layer] :as state} _]
+  (act state move-up-stack selected-layer))
+
+(defmethod kp [KeyEvent/VK_PAGE_DOWN] [_ state _]
+  (act state move-down-layer))
+
+(defmethod kp [KeyEvent/VK_PAGE_UP] [_ state _]
+  (act state move-up-layer))
 
 (defmethod kp [KeyEvent/VK_TAB] [_ {:keys [mode] :as state} _]
   (assoc state
@@ -86,8 +92,8 @@
     :mode :mesh
     :action :new-obj))
 
-(defmethod kp [KeyEvent/VK_W] [_ {:keys [scene selection] :as state} p]
-  (let [[newscene newselection] (sibling scene selection)]
+(defmethod kp [KeyEvent/VK_W] [_ {:keys [scene selection selected-layer] :as state} p]
+  (let [[newscene newselection] (sibling scene selection selected-layer)]
     (assoc state
       :scene newscene
       :selection (into {} (map (fn [i] [i #{}])
@@ -96,8 +102,8 @@
       :action-start p
       :action :move)))
 
-(defmethod kp [KeyEvent/VK_D] [_ {:keys [scene selection] :as state} p]
-  (let [[newscene newselection] (copy scene selection)]
+(defmethod kp [KeyEvent/VK_D] [_ {:keys [scene selection selected-layer] :as state} p]
+  (let [[newscene newselection] (copy scene selection selected-layer)]
     (assoc state
       :scene newscene
       :selection (into {} (map (fn [i] [i #{}])

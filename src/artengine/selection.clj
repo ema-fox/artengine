@@ -10,10 +10,13 @@
       (when fill-color
 	(shape-contains (get-polygon x xs) p))))
 
-(defn select-obj [{:keys [objs stack]} mp dist]
+(defn select-obj [{:keys [objs layers layers-ord]} mp dist]
   (let [seli (->> (map (fn [obj-i]
 			 [obj-i (get objs obj-i)])
-		       (reverse stack))
+		       (reverse (for [layeri layers-ord
+                                      obj-i (get-in layers [layeri :stack])
+                                      :when (get-in layers [layeri :edit])]
+                                  obj-i)))
 		  (filter (fn [[obj-i x]]
 			    (obj-near? x mp objs dist)))
 		  first

@@ -1,15 +1,16 @@
 (ns artengine.core
   (:gen-class)
   (:use [artengine util edit selection polygon key mouse]
-	[seesaw [core :exclude [select action selection]] graphics color chooser]
-	[clojure stacktrace]
+	[seesaw [core :exclude [select action selection] :as s] graphics color chooser]
+	[clojure stacktrace set]
         [clojure.java.io :exclude [copy]])
   (:import [java.awt.event KeyEvent MouseEvent]
 	   [javax.imageio ImageIO]
 	   [java.awt.geom Area]
 	   [java.awt.image BufferedImage]))
 
-(def rstate (ref {:scene {:objs {} :stack []}
+(def rstate (ref {:scene {:objs {} :layers {1 {:stack [] :name "foo" :edit true :view true}} :layers-ord [1]}
+                  :selected-layer 1
                   :selection {}
                   :action-start nil
                   :mode :object
@@ -79,9 +80,11 @@
   (try
   (dosync
    (set-stroke-width g 1)
-   (let [{:keys [stack objs] :as scene} (transform (:scene (mp (md @rstate @old-mp) @old-mp))
-                                                   (:trans @rstate))]
-     (doseq [i stack
+   (let [{:keys [layers layers-ord objs] :as scene} (transform (:scene (mp (md @rstate @old-mp) @old-mp))
+                                                               (:trans @rstate))]
+     (doseq [layeri layers-ord
+             i (:stack (get layers layeri))
+             :when (:view (get layers layeri))
 	     :let [x (get objs i)]]
        (paint g x objs))
      (if (= (:mode @rstate) :object)
@@ -176,6 +179,7 @@
        nil))))
 
 (defn mouse-released [e]
+  (request-focus! can)
   (dosync
    (let [p (get-pos e (:trans @rstate))]
      (condp = (.getButton e)
@@ -197,15 +201,111 @@
      (alter rstate assoc-in [:trans 0] (* (get-in @rstate [:trans 0]) (Math/pow 0.9 (.getWheelRotation e))))))
   (repaint! can))
 
+(declare layer-radios layers-gui rd lg)
+
+(defn reshow-layer-gui []
+  (repaint! can)
+  (let [newlg (layers-gui)]
+    (replace! rd @lg newlg)
+    (ref-set lg newlg)))
+
+(defn do-layer-up []
+  (dosync
+   (alter rstate assoc
+          :scene (move-up-layers-ord (:scene @rstate) (:selected-layer @rstate)))
+   (reshow-layer-gui)))
+
+(defn do-layer-down []
+  (dosync
+   (alter rstate assoc
+          :scene (move-down-layers-ord (:scene @rstate) (:selected-layer @rstate)))
+   (reshow-layer-gui)))
+
+(defn do-new-layer []
+  (dosync
+   (let [[newscene newlayeri] (new-layer (:scene @rstate) (:selected-layer @rstate))]
+     (alter rstate assoc
+            :scene newscene
+            :selected-layer newlayeri))
+   (reshow-layer-gui)))
+
+(defn do-delete-layer []
+  (dosync
+   (let [newscene (delete-layer (:scene @rstate) (:selected-layer @rstate))]
+     (alter rstate assoc
+            :scene newscene
+            :selected-layer (first (:layers-ord newscene))))
+   (reshow-layer-gui)))
+
+(defn layer-gui [{:keys [view edit name] :as layer} layeri selected]
+  (horizontal-panel :items
+                    [(checkbox :selected? view
+                               :listen [:item-state-changed
+                                        (fn [e]
+                                          (dosync
+                                           (alter rstate assoc-in [:scene :layers layeri :view]
+                                                  (value e)))
+                                          (repaint! can))])
+                     (checkbox :selected? edit
+                               :listen [:item-state-changed
+                                        (fn [e]
+                                          (dosync
+                                           (alter rstate assoc-in [:scene :layers layeri :edit]
+                                                  (value e)))
+                                          (repaint! can))])
+                     (radio :group layer-radios ;:group has to be before :selected?.
+                            :selected? selected
+                            :listen [:item-state-changed
+                                     (fn [e]
+                                       (if (value e)
+                                         (dosync
+                                          (alter rstate assoc :selected-layer layeri))))])
+                     (text :text name
+                           :columns 10
+                           :listen [:focus-lost
+                                    (fn [e]
+                                      (dosync
+                                       (alter rstate assoc-in [:scene :layers layeri :name]
+                                              (value e))))])]))
+
+(defn layers-gui []
+  (let [{:keys [scene selected-layer]} @rstate
+        x (vertical-panel
+           :items (concat
+                   (for [i (reverse (:layers-ord scene))]
+                     (layer-gui (get (:layers scene) i) i (= i selected-layer)))
+                   [(horizontal-panel :items [(button :text "+"
+                                                      :listen [:mouse-released
+                                                               (fn [e] (do-new-layer))])
+                                              (button :text "up"
+                                                      :listen [:mouse-released
+                                                               (fn [e] (do-layer-up))])
+                                              (button :text "down"
+                                                      :listen [:mouse-released
+                                                               (fn [e] (do-layer-down))])
+                                              (button :text "-"
+                                                      :listen [:mouse-released
+                                                               (fn [e] (do-delete-layer))])])]))]
+    (listen (difference (set (s/select x [:*])) (set (s/select x [:JTextField])))
+            :focus-gained (fn [e] (request-focus! can)))
+    x))
+
 (defn -main []
   (def can (canvas :paint render :background "#808080"))
-  (def fr (frame :content can))
-  (listen fr :key-pressed key-pressed)
-  (.setFocusTraversalKeysEnabled fr false)
+  (def layer-radios (button-group))
+  (def lg (ref (layers-gui)))
+  (def rd (border-panel :north @lg
+                        :center :fill-v))
+  (def fr (frame :content (border-panel
+                           :center can
+                           :east rd)))
+  (.setFocusTraversalKeysEnabled can false)
   (listen can
+          :key-pressed key-pressed
 	  :mouse-pressed mouse-pressed
 	  :mouse-released mouse-released
 	  #{:mouse-moved :mouse-dragged} mouse-moved
 	  :mouse-wheel-moved mouse-wheeled)
   (show! fr)
+  (request-focus! can)
   nil)

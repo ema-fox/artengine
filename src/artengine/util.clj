@@ -22,8 +22,11 @@
 (defn minus [[pa0 pa1] [pb0 pb1]]
   [(- pa0 pb0) (- pa1 pb1)])
 
-(defn plus [[pa0 pa1] [pb0 pb1]]
-  [(+ pa0 pb0) (+ pa1 pb1)])
+(defn plus
+  ([[pa0 pa1] [pb0 pb1]]
+     [(+ pa0 pb0) (+ pa1 pb1)])
+  ([]
+     [0 0]))
 
 (defn mult [[p0 p1] x]
   [(* p0 x) (* p1 x)])

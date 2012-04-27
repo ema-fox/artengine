@@ -9,10 +9,10 @@
     (alter actions assoc ~name (fn ~'[scene selection pa pb] ~body))))
 
 (defmacro deftool [name args body]
-  `(defn ~name [{:keys [~'stack ~'objs] :as ~'scene} ~'selection ~@args]
+  `(defn ~name [{:keys [~'objs] :as ~'scene} ~'selection ~@args]
      (assoc ~'scene
        :objs (into ~'objs (mapmap (fn [~'obj-i ~'selis]
-				    (let [~'x (get ~'objs ~'obj-i)]
+                                    (let [~'x (get ~'objs ~'obj-i)]
 				      ~body))
 				  ~'selection)))))
 
@@ -100,10 +100,13 @@
 	:softs (assoc softs newi false)
 	:ps (assoc ps newi p)))))
 
-(defn sibling [{:keys [stack objs] :as scene} selection]
+(defn add-to-stack [layers layeri obj-is]
+  (assoc-in layers [layeri :stack] (into (:stack (get layers layeri)) obj-is)))
+
+(defn sibling [{:keys [layers objs] :as scene} selection layeri]
   (let [newis (take (count selection) (iterate inc (get-new-key objs)))]
     [(assoc scene
-       :stack (into stack newis)
+       :layers (add-to-stack layers layeri newis)
        :objs (into objs (apply concat (map (fn [obj-i newi]
                                              [[obj-i (assoc (get objs obj-i) :sibling newi)]
                                               [newi (assoc (get objs obj-i)
@@ -123,17 +126,17 @@
         :clip bla)
       newx)))
 
-(defn copy [{:keys [stack objs] :as scene} selection]
+(defn copy [{:keys [layers objs] :as scene} selection layeri]
   (let [newis (take (count selection) (iterate inc (get-new-key objs)))
         foo (into {} (map vector (keys selection) newis))]
     [(assoc scene
-       :stack (into stack (keep #(get foo %) stack))
+       :layers (add-to-stack layers layeri (keep #(get foo %) (get-in layers [layeri :stack])))
        :objs (into objs (map (fn [[obj-i newi]]
 			       [newi (copy-helper (get objs obj-i) foo)])
                              foo)))
      newis]))
 
-(defn new-obj [{:keys [stack objs] :as scene} p]
+(defn new-obj [{:keys [layers objs] :as scene} p layeri]
   (let [newi (get-new-key objs)]
     (assoc scene
       :objs (assoc objs newi {:ps {1 p}
@@ -142,13 +145,13 @@
 			      :closed false
 			      :line-color [0 0 0 255]
 			      :line-width 1})
-      :stack (conj stack newi))))
+      :layers (add-to-stack layers layeri [newi]))))
 
-(defn new-sketch [{:keys [stack objs] :as scene} p]
+(defn new-sketch [{:keys [layers objs] :as scene} p layeri]
   (let [newi (get-new-key objs)]
     (assoc scene
       :objs (assoc objs newi {:ps {1 p} :ls [1] :line-width 20 :line-color [0 0 0 30]})
-      :stack (conj stack newi))))
+      :layers (add-to-stack layers layeri [newi]))))
 
 (deftool end-sketch [p]
   (assoc x
@@ -281,7 +284,7 @@
                  [i p] (:ps (get objs obj-i))
                  :when (selis i)]
              p)]
-    (div (reduce plus ps) (count ps))))
+    (div (reduce plus ps) (max 1 (count ps)))))
 
 (defact [:rot :mesh]
   (let [origin (selection-ps-avg scene selection)]
@@ -291,7 +294,7 @@
   (let [ps (for [obj-i (keys selection)
                  [i p] (:ps (get objs obj-i))]
              p)]
-    (div (reduce plus ps) (count ps))))
+    (div (reduce plus ps) (max 1 (count ps)))))
 
 (defact [:rot :object]
   (let [origin (selection-avg scene selection)]
@@ -338,17 +341,71 @@
 	  (recur (cons b d) (conj res a))))
       (vec (concat res s)))))
 
-(defn move-down-stack [{:keys [stack objs] :as scene} sel-objs]
-  (assoc scene :stack (move-down stack (keys sel-objs))))
+(defn move-down-stack [{:keys [layers objs] :as scene} sel-objs layeri]
+  (assoc-in scene [:layers layeri :stack] (move-down (get-in layers [layeri :stack])
+                                                     (keys sel-objs))))
 
-(defn move-up-stack [{:keys [stack objs] :as scene} sel-objs]
-  (assoc scene :stack (-> stack
-			  reverse
-			  (move-down (keys sel-objs))
-			  reverse
-			  vec)))
+(defn move-up-stack [{:keys [layers objs] :as scene} sel-objs layeri]
+  (assoc-in scene [:layers layeri :stack] (-> (get-in layers [layeri :stack])
+                                              reverse
+                                              (move-down (keys sel-objs))
+                                              reverse
+                                              vec)))
 
-(defn transform [{:keys [stack objs] :as scene} [scale :as transformation]]
+(defn layer-move-down [layers layers-ord selection]
+  (loop [s layers-ord
+         layers layers]
+    (let [[dest src] s]
+      (if src
+        (recur (rest s) (assoc layers
+                          dest (assoc (get layers dest)
+                                 :stack (concat (get-in layers [dest :stack])
+                                                (filter #(selection %)
+                                                        (get-in layers [src :stack]))))
+                          src (assoc (get layers src)
+                                :stack (filter #(not (selection %))
+                                               (get-in layers [src :stack])))))
+        layers))))
+
+(defn move-down-layer [{:keys [layers layers-ord] :as scene} selection]
+  (assoc scene
+    :layers (layer-move-down layers layers-ord selection)))
+
+(defn move-up-layer [{:keys [layers layers-ord] :as scene} selection]
+  (assoc scene
+    :layers (layer-move-down layers (reverse layers-ord) selection)))
+
+(defn move-down-layers-ord [{:keys [layers-ord] :as scene} layeri]
+  (assoc scene :layers-ord (move-down layers-ord [layeri])))
+
+(defn move-up-layers-ord [{:keys [layers-ord] :as scene} layeri]
+  (assoc scene :layers-ord (-> layers-ord
+                               reverse
+                               (move-down [layeri])
+                               reverse)))
+
+(defn new-layer [{:keys [layers layers-ord] :as scene} layeri]
+  (let [newi (get-new-key layers)]
+    [(assoc scene
+       :layers (assoc layers newi {:stack []
+                                   :name ""
+                                   :edit true
+                                   :view true})
+       :layers-ord (apply concat (map #(if (= % layeri)
+                                         [% newi]
+                                         [%])
+                                      layers-ord)))
+     newi]))
+
+(defn delete-layer [{:keys [layers layers-ord] :as scene} layeri]
+  (if (second layers)
+    (assoc (delete-objs scene (into {} (map (fn [i] [i #{}])
+                                            (get-in layers [layeri :stack]))))
+      :layers (dissoc layers layeri)
+      :layers-ord (filter #(not= layeri %) layers-ord))
+    scene))
+
+(defn transform [{:keys [objs] :as scene} [scale :as transformation]]
   (assoc scene
     :objs (into {} (mapmap (fn [obj-i x]
 			     (assoc x
