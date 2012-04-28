@@ -17,6 +17,26 @@
                   :action :normal
                   :trans [1 [0 0]]}))
 
+(def undostack (ref ()))
+(def redostack (ref ()))
+
+(add-watch rstate :undo
+           (fn [_ _ old-state new-state]
+             (when (not= (:scene old-state) (:scene new-state))
+               (dosync
+                (condp = new-state
+                  (first @undostack)
+                  (do
+                    (alter undostack rest)
+                    (alter redostack conj old-state))
+                  (first @redostack)
+                  (do
+                    (alter redostack rest)
+                    (alter undostack conj old-state))
+                  (do
+                    (ref-set redostack ())
+                    (alter undostack conj old-state)))))))
+
 (def old-mp (ref [0 0]))
 
 (def file-path (ref nil))
@@ -138,6 +158,12 @@
   (if-let [path (choose-file :type "export")]
     (export path))
   state)
+
+(defmethod kp [KeyEvent/VK_Z :ctrl] [_ state _]
+  (or (first @undostack) state))
+
+(defmethod kp [KeyEvent/VK_Z :shift :ctrl] [_ state _]
+  (or (first @redostack) state))
 
 (defmethod kp :default [_ state _]
   state)
