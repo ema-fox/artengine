@@ -52,11 +52,15 @@
 (defmethod kp [KeyEvent/VK_O :shift] [_ state _]
   (act state unclose))
 
-(defmethod kp [KeyEvent/VK_U] [_ state _]
-  (act state soft))
+(defmethod kp [KeyEvent/VK_U] [_ {:keys [mode] :as state} _]
+  (if (= mode :mesh)
+    (act state soft)
+    (act state obj-soft)))
 
-(defmethod kp [KeyEvent/VK_U :shift] [_ state _]
-  (act state unsoft))
+(defmethod kp [KeyEvent/VK_U :shift] [_ {:keys [mode] :as state} _]
+  (if (= mode :mesh)
+    (act state unsoft)
+    (act state obj-unsoft)))
 
 (defmethod kp [KeyEvent/VK_F] [_ state _]
   (assoc state :action :clip))

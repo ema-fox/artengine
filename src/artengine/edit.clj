@@ -104,17 +104,20 @@
   (assoc-in layers [layeri :stack] (into (:stack (get layers layeri)) obj-is)))
 
 (defn sibling [{:keys [layers objs] :as scene} selection layeri]
-  (let [newis (take (count selection) (iterate inc (get-new-key objs)))]
+  (let [newis (take (count selection) (iterate inc (get-new-key objs)))
+        newobjs (into objs (apply concat (map (fn [obj-i newi]
+                                                (if-not (get-in objs [obj-i :sibling])
+                                                  [[obj-i (assoc (get objs obj-i) :sibling newi)]
+                                                   [newi (assoc (get objs obj-i)
+                                                           :sibling obj-i
+                                                           :steps 5)]]))
+                                              (keys selection)
+                                              newis)))
+        newis2 (filter #(get newobjs %) newis)]
     [(assoc scene
-       :layers (add-to-stack layers layeri newis)
-       :objs (into objs (apply concat (map (fn [obj-i newi]
-                                             [[obj-i (assoc (get objs obj-i) :sibling newi)]
-                                              [newi (assoc (get objs obj-i)
-                                                      :sibling obj-i
-                                                      :steps 5)]])
-                                           (keys selection)
-                                           newis))))
-     newis]))
+       :layers (add-to-stack layers layeri newis2)
+       :objs newobjs)
+     newis2]))
 
 (defn copy-helper [{:keys [sibling clip] :as x} foo]
   (let [newx (if-let [bla (get foo sibling)]
@@ -229,6 +232,14 @@
   (assoc x :softs (into (:softs x) (map (fn [i]
 					  [i false])
 					selis))))
+
+(deftool obj-soft []
+  (assoc x :softs (into {} (mapmap (constantly true)
+                                   (:softs x)))))
+
+(deftool obj-unsoft []
+  (assoc x :softs (into {} (mapmap (constantly false)
+                                   (:softs x)))))
 
 (defn move-obj [x movement]
   (assoc x
