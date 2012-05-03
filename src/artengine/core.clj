@@ -6,8 +6,7 @@
         [clojure.java.io :exclude [copy]])
   (:import [java.awt.event KeyEvent MouseEvent]
 	   [javax.imageio ImageIO]
-	   [java.awt.geom Area]
-	   [java.awt.image BufferedImage]))
+	   [java.awt.geom Area]))
 
 (def rstate (ref {:scene {:objs {} :layers {1 {:stack [] :name "foo" :edit true :view true}} :layers-ord [1]}
                   :selected-layer 1
@@ -37,6 +36,8 @@
                     (ref-set redostack ())
                     (alter undostack conj old-state)))))))
 
+(def export-scale (ref 1))
+
 (def old-mp (ref [0 0]))
 
 (def file-path (ref nil))
@@ -53,6 +54,17 @@
   (dosync
    (ref-set file-path path))
   (assoc state :scene (read-string (slurp path))))
+
+(defn selected-bbox [objs selection]
+  (let [ps (apply concat (for [i (keys selection)]
+                           (vals (get-in objs [i :ps]))))]
+    (if (first ps)
+      (let [pa [(apply min (map first ps))
+                (apply min (map second ps))]
+            pb [(apply max (map first ps))
+                (apply max (map second ps))]]
+        [pa pb])
+      [[0 0] [0 0]])))
 
 (defn paint-handle [g p]
   (set-color g [255 255 255 255])
@@ -96,46 +108,64 @@
 (defn paint-sel [g x color xs]
   (paint g (dissoc (assoc x :line-color color :line-width 1) :clip :fill-color) xs))
 
-(defn render [c g]
+(declare show-export-gui export-gui exp export-stuff)
+
+(defn render-raw [g {:keys [layers layers-ord objs]}]
+  (doseq [layeri layers-ord
+          i (:stack (get layers layeri))
+          :when (:view (get layers layeri))
+          :let [x (get objs i)]]
+    (paint g x objs)))
+
+(defn update-export-gui []
+  (let [[foo bla] (export-stuff @rstate @export-scale)]
+    (value! (s/select @exp [:#export0]) (first bla))
+    (value! (s/select @exp [:#export1]) (second bla))))
+
+(defn render [g {:keys [trans mode action action-start selection export] :as state} mousep]
+  (let [{:keys [objs] :as scene} (transform (:scene (mp (md state mousep) mousep)) trans)]
+    (render-raw g scene)
+    (if (= mode :object)
+      (if-let [sel (get objs (first (keys (select-obj scene (transform-p mousep trans) 20))))]
+        (paint-sel g sel [200 0 200 255] objs)))
+    (doseq [obj-i (keys selection) :let [x (get objs obj-i)]]
+      (if (= mode :mesh)
+        (paint-handles g x)
+        (paint-sel g x [250 200 0 255] objs)))
+    (set-stroke-width g 1)
+    (if export
+      (apply draw-rect g (selected-bbox objs selection)))
+    (set-color g [250 200 0 255])
+    (when (= mode :mesh)
+      (doseq [[obj-i is] selection
+              i is
+              :let [p (get (:ps (get objs obj-i)) i)]]
+        (paint-solid-handle g p))))
+  (if (= action :select)
+    (draw-rect g (transform-p action-start trans) (transform-p mousep trans)))
+  (set-color g [0 0 0 255])
+  (.drawString g (str mode) 10 20)
+  (.drawString g (str action) 10 40))
+
+(defn paint-canvas [o g]
   (try
-  (dosync
-   (set-stroke-width g 1)
-   (let [{:keys [layers layers-ord objs] :as scene} (transform (:scene (mp (md @rstate @old-mp) @old-mp))
-                                                               (:trans @rstate))]
-     (doseq [layeri layers-ord
-             i (:stack (get layers layeri))
-             :when (:view (get layers layeri))
-	     :let [x (get objs i)]]
-       (paint g x objs))
-     (if (= (:mode @rstate) :object)
-       (if-let [sel (get objs (first (keys (select-obj scene (transform-p @old-mp (:trans @rstate)) 20))))]
-	 (paint-sel g sel [200 0 200 255] objs)))
-     (doseq [obj-i (keys (:selection @rstate)) :let [x (get objs obj-i)]]
-       (if (= (:mode @rstate) :mesh)
-	 (paint-handles g x)
-	 (paint-sel g x [250 200 0 255] objs)))
-     (set-color g [250 200 0 255])
-     (when (= (:mode @rstate) :mesh)
-       (doseq [[obj-i is] (:selection @rstate)
-	       i is
-	       :let [p (get (:ps (get objs obj-i)) i)]]
-	 (paint-solid-handle g p))))
-   (set-stroke-width g 1)
-   (if (= (:action @rstate) :select)
-     (draw-rect g (transform-p (:action-start @rstate) (:trans @rstate))
-                (transform-p @old-mp (:trans @rstate))))
-   (set-color g [0 0 0 255])
-   (.drawString g (str (:mode @rstate)) 10 20)
-   (.drawString g (str (:action @rstate)) 10 40))
-  (catch Exception e
-    (prn @rstate @old-mp)
-    (print-cause-trace e)
-    (System/exit 0))))
+    (render g @rstate @old-mp)
+    (catch Exception e
+      (prn @rstate @old-mp)
+      (print-cause-trace e)
+      (System/exit 0))))
+
+(defn export-stuff [{:keys [scene selection]} scale]
+  (let [foo (selected-bbox (:objs scene) selection)]
+    [foo
+     (map int (plus [0.5 0.5] (mult (apply minus (reverse foo)) scale)))]))
 
 (defn export [path]
-  (let [img (BufferedImage. 1000 1000 BufferedImage/TYPE_INT_ARGB)
+  (let [[foo bla] (export-stuff @rstate @export-scale)
+        img (apply buffered-image bla)
 	g (.getGraphics img)]
-    (render nil g)
+    (anti-alias g)
+    (render-raw g (transform (:scene @rstate) [@export-scale (mult (first foo) -1)]))
     (ImageIO/write img "png" (file path))))
 
 (defmethod kp [KeyEvent/VK_ESCAPE] [_ _ _]
@@ -155,9 +185,24 @@
     state))
 
 (defmethod kp [KeyEvent/VK_E :ctrl] [_ state _]
+  (show-export-gui)
+  (assoc state
+    :export true))
+
+(declare layer-radios layers-gui rd lg exp)
+
+(defn do-cancel-export []
+  (remove-watch rstate :export)
+  (dosync
+   (alter rstate dissoc :export)
+   (let [newexp (label "")]
+     (replace! rd @exp newexp)
+     (ref-set exp newexp))))
+
+(defn do-export []
   (if-let [path (choose-file :type "export")]
     (export path))
-  state)
+  (do-cancel-export))
 
 (defmethod kp [KeyEvent/VK_Z :ctrl] [_ state _]
   (or (first @undostack) state))
@@ -227,13 +272,19 @@
      (alter rstate assoc-in [:trans 0] (* (get-in @rstate [:trans 0]) (Math/pow 0.9 (.getWheelRotation e))))))
   (repaint! can))
 
-(declare layer-radios layers-gui rd lg)
-
 (defn reshow-layer-gui []
   (repaint! can)
   (let [newlg (layers-gui)]
     (replace! rd @lg newlg)
     (ref-set lg newlg)))
+
+(defn show-export-gui []
+  (add-watch rstate :export
+             (fn [_ _ _ _]
+               (update-export-gui)))
+  (let [newexp (export-gui)]
+    (replace! rd @exp newexp)
+    (ref-set exp newexp)))
 
 (defn do-layer-up []
   (dosync
@@ -316,12 +367,41 @@
             :focus-gained (fn [e] (request-focus! can)))
     x))
 
+(defn do-export-change [e f]
+  (dosync
+   (let [[foo bla] (export-stuff @rstate @export-scale)
+         bar (apply minus (reverse foo))]
+     (if-not (= 0 (apply * bar))
+       (ref-set export-scale (/ (read-string (value e)) (f bar)))))
+   (update-export-gui)))
+
+(defn export-gui []
+  (let [[foo bla] (export-stuff @rstate @export-scale)]
+    (vertical-panel
+     :items
+     [(text :text (first bla)
+            :id :export0
+            :listen [:focus-lost
+                     (fn [e] (do-export-change e first))])
+      (text :text (second bla)
+            :id :export1
+            :listen [:focus-lost
+                     (fn [e] (do-export-change e second))])
+      (horizontal-panel :items [(button :text "export"
+                                        :listen [:mouse-released
+                                                 (fn [e] (do-export))])
+                                (button :text "cancel"
+                                        :listen [:mouse-released
+                                                 (fn [e] (do-cancel-export))])])])))
+
 (defn -main []
-  (def can (canvas :paint render :background "#808080"))
+  (def can (canvas :paint paint-canvas :background "#808080"))
   (def layer-radios (button-group))
   (def lg (ref (layers-gui)))
+  (def exp (ref (label "")))
   (def rd (border-panel :north @lg
-                        :center :fill-v))
+                        :center :fill-v
+                        :south @exp))
   (def fr (frame :content (border-panel
                            :center can
                            :east rd)))
