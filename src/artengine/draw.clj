@@ -17,14 +17,25 @@
 
 (declare paint)
 
+(defn avg-color [ca cb foo]
+  (if (or ca cb)
+    (map (fn [a b]
+           (int (+ (* b foo) (* a (- 1 foo)))))
+         (or ca (assoc cb 3 0))
+         (or cb (assoc ca 3 0)))))
+
 (defn paint-sibling [g {:keys [sibling ps ls softs steps] :as x} xs]
   (let [sib (get xs sibling)]
     (if-not steps
       (paint g (dissoc x :sibling) xs)
-      (doseq [foo (range steps)]
+      (doseq [foo (range steps)
+              :let [bar (/ foo steps)]]
         (paint g (assoc (dissoc x :sibling)
+                   :fill-color (avg-color (:fill-color x) (:fill-color sib) bar)
+                   :line-color (avg-color (:line-color x) (:line-color sib) bar)
+                   :line-width (+ (* (- 1 bar) (:line-width x)) (* bar (:line-width sib)))
                    :ps (into {} (map (fn [ia ib]
-                                       [ia (avg-point (get (:ps sib) ib) (get ps ia) (/ foo steps))])
+                                       [ia (avg-point (get (:ps sib) ib) (get ps ia) bar)])
                                      ls
                                      (:ls sib))))
                xs)))))
