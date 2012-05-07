@@ -177,12 +177,15 @@
       (assoc x :decos (set newdecos))
       (dissoc x :decos))))
 
-(defn fix [{:keys [stack objs] :as scene}]
+(defn fix [{:keys [layers objs] :as scene}]
   (assoc scene
     :objs (into {} (mapmap (fn [obj-i x]
 			     (fix-obj x objs))
 			   objs))
-    :stack (vec (filter #(get objs %) stack))))
+    :layers (into {} (mapmap (fn [_ {:keys [stack] :as layer}]
+                               (assoc layer
+                                 :stack (vec (filter #(get objs %) stack))))
+                             layers))))
 
 (defn delete-objs [{:keys [objs] :as scene} selection]
   (fix (assoc scene
