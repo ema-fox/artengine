@@ -1,10 +1,12 @@
 (ns artengine.polygon
-  (:use [artengine util edit])
+  (:use [artengine util edit]
+        seesaw.graphics)
   (:import [java.awt.geom Area GeneralPath]))
 
-(defn clip-polygon [pol1 pol2]
+(defn clip-polygon [pol1 pol2 stroke-width]
   (doto (Area. pol2)
-    (.intersect (Area. pol1))))
+    (.intersect (Area. pol1))
+    (.subtract (Area. (.createStrokedShape (to-stroke (max 0 (- stroke-width 0.01))) pol2)))))
 
 (defn move-to [path [p0 p1]]
   (.moveTo path p0 p1))
@@ -46,5 +48,5 @@
 (defn get-polygon [{:keys [clip] :as x} xs]
   (let [pol (make-path x)]
     (if clip
-      (clip-polygon pol (get-polygon (get xs clip) xs))
+      (clip-polygon pol (get-polygon (get xs clip) xs) (:line-width (get xs clip)))
       pol)))
