@@ -18,7 +18,7 @@
 
 (defn get-new-key [xs]
   (if (first xs)
-    (inc (apply max (map first xs)))
+    (inc (apply max (keys xs)))
     1))
 
 (defn get-ilines [{:keys [closed ls]}]
@@ -101,7 +101,7 @@
 	:ps (assoc ps newi p)))))
 
 (defn add-to-stack [layers layeri obj-is]
-  (assoc-in layers [layeri :stack] (into (:stack (get layers layeri)) obj-is)))
+  (assoc-in layers [layeri :stack] (concat (:stack (get layers layeri)) obj-is)))
 
 (defn sibling [{:keys [layers objs] :as scene} selection layeri]
   (let [newis (take (count selection) (iterate inc (get-new-key objs)))
@@ -133,7 +133,7 @@
   (let [newis (take (count selection) (iterate inc (get-new-key objs)))
         foo (into {} (map vector (keys selection) newis))]
     [(assoc scene
-       :layers (add-to-stack layers layeri (keep #(get foo %) (get-in layers [layeri :stack])))
+       :layers (add-to-stack layers layeri (keep #(get foo %) (get-in layers [layeri :stack])));bug when copieng obj that's not on current layer
        :objs (into objs (map (fn [[obj-i newi]]
 			       [newi (copy-helper (get objs obj-i) foo)])
                              foo)))
@@ -171,11 +171,10 @@
   (assoc x
     :line-width (* (:line-width x) (Math/pow 0.9 amount))))
 
-(defn fix-obj [{:keys [decos] :as x} xs]
-  (let [newdecos (filter #(get xs %) decos)]
-    (if (seq newdecos)
-      (assoc x :decos (set newdecos))
-      (dissoc x :decos))))
+(defn fix-obj [{:keys [sibling] :as x} xs]
+  (if (and sibling (not (get xs sibling)))
+    (dissoc x :sibling)
+    x))
 
 (defn fix [{:keys [layers objs] :as scene}]
   (assoc scene

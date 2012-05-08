@@ -53,7 +53,9 @@
 (defn open [path state]
   (dosync
    (ref-set file-path path))
-  (assoc state :scene (read-string (slurp path))))
+  (assoc state
+    :scene (read-string (slurp path))
+    :selection {}))
 
 (declare show-export-gui export-gui exp export-stuff)
 
