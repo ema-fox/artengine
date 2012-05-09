@@ -65,13 +65,15 @@
        (mapmap (fn [obj-i x] #{}))
        (into {})))
 
+(defn bbox [ps]
+  (if (first ps)
+    (let [pa [(apply min (map first ps))
+              (apply min (map second ps))]
+          pb [(apply max (map first ps))
+              (apply max (map second ps))]]
+      [pa pb])
+    [[0 0] [0 0]]))
+
 (defn selected-bbox [objs selection]
-  (let [ps (apply concat (for [i (keys selection)]
-                           (vals (get-in objs [i :ps]))))]
-    (if (first ps)
-      (let [pa [(apply min (map first ps))
-                (apply min (map second ps))]
-            pb [(apply max (map first ps))
-                (apply max (map second ps))]]
-        [pa pb])
-      [[0 0] [0 0]])))
+  (bbox (apply concat (for [i (keys selection)]
+                        (vals (get-in objs [i :ps]))))))

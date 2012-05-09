@@ -24,56 +24,96 @@
          (or ca (assoc cb 3 0))
          (or cb (assoc ca 3 0)))))
 
-(defn paint-sibling [g {:keys [sibling ps ls softs steps] :as x} xs]
-  (let [sib (get xs sibling)]
-    (if-not steps
-      (paint g (dissoc x :sibling) xs)
-      (doseq [foo (range steps)
-              :let [bar (/ foo steps)]]
-        (paint g (assoc (dissoc x :sibling)
-                   :fill-color (avg-color (:fill-color x) (:fill-color sib) bar)
-                   :line-color (avg-color (:line-color x) (:line-color sib) bar)
-                   :line-width (+ (* (- 1 bar) (:line-width x)) (* bar (:line-width sib)))
-                   :ps (into {} (map (fn [ia ib]
-                                       [ia (avg-point (get (:ps sib) ib) (get ps ia) bar)])
-                                     ls
-                                     (:ls sib))))
-               xs)))))
-
-(defn paint [g {:keys [ps ls closed clip fill-color line-color line-width sibling] :as x} xs]
+(defn expand-sibling [{:keys [sibling ps ls softs steps sibling] :as x} xs]
   (if sibling
-    (paint-sibling g x xs)
-    (draw g (get-polygon x xs)
-          (style :background (if fill-color
-                               (apply color fill-color))
-                 :foreground (if line-color
-                               (apply color line-color))
-                 :stroke (stroke :width line-width
-                                 :cap :round
-                                 :join :round)))))
+    (let [sib (get xs sibling)]
+      (if-not steps
+        [(dissoc x :sibling)]
+        (for [foo (range steps)
+              :let [bar (/ foo steps)]]
+          (assoc (dissoc x :sibling)
+            :fill-color (avg-color (:fill-color x) (:fill-color sib) bar)
+            :line-color (avg-color (:line-color x) (:line-color sib) bar)
+            :line-width (+ (* (- 1 bar) (:line-width x)) (* bar (:line-width sib)))
+            :ps (into {} (map (fn [ia ib]
+                                [ia (avg-point (get (:ps sib) ib) (get ps ia) bar)])
+                              ls
+                              (:ls sib)))))))
+    [x]))
 
-(defn paint-sel [g x color xs]
-  (paint g (dissoc (assoc x :line-color color :line-width 1) :clip :fill-color) xs))
+(def draw-cache (ref {}))
 
+(defn int-obj [{:keys [ps] :as x}]
+  (assoc x
+    :ps (into {} (mapmap (fn [_ p]
+                           (map #(* 0.01 (int (* 100 %))) p))
+                         ps))))
 
-(defn render-raw [g {:keys [layers layers-ord objs]}]
-  (doseq [layeri layers-ord
-          i (:stack (get layers layeri))
-          :when (:view (get layers layeri))
-          :let [x (get objs i)]]
+(defn draw-box [{:keys [ps line-width]}]
+  (let [[pa pb] (bbox (vals ps))
+        foo [line-width line-width]]
+    [(minus pa foo)
+     (plus pb foo)]))
+
+(defn bla-obj [x]
+  (let [bb (draw-box x)]
+    (int-obj (move-obj x (mult (first bb) -1)))))
+
+(defn paint [g {:keys [ps ls closed clip fill-color line-color line-width] :as x} xs]
+  (let [bb (draw-box x)
+        s (plus (apply minus (reverse bb)) [1 1])]
+    (if (.hitClip g (first (first bb)) (second (first bb)) (first s) (second s))
+      (let [x2 (int-obj (move-obj x (mult (first bb) -1)))]
+        (if-not (get @draw-cache x2)
+          (let [img (apply buffered-image s)
+                g2 (.getGraphics img)]
+            (anti-alias g2)
+            (draw g2 (get-polygon x2 xs)
+                  (style :background (if fill-color
+                                       (apply color fill-color))
+                         :foreground (if line-color
+                                       (apply color line-color))
+                         :stroke (stroke :width line-width
+                                         :cap :round
+                                         :join :round)))
+            (dosync
+             (alter draw-cache assoc x2 img))))
+        (.drawImage g (get @draw-cache x2) nil (int (first (first bb))) (int (second (first bb))))))))
+
+(defn expand-sel [x color xs]
+  (expand-sibling (dissoc (assoc x :line-color color :line-width 1) :clip :fill-color) xs))
+
+(defn gather-sels [selection color xs]
+  (apply concat (for [i (keys selection)]
+                  (expand-sel (get xs i) color xs))))
+
+(defn gather-objs [{:keys [layers layers-ord objs]}]
+  (for [layeri layers-ord
+        i (:stack (get layers layeri))
+        :when (:view (get layers layeri))
+        obj (expand-sibling (get objs i) objs)]
+    obj))
+
+(defn render-objs [g paint-objs objs]
+  (dosync
+   (alter draw-cache select-keys (map bla-obj paint-objs)))
+  (doseq [x paint-objs]
     (paint g x objs)))
 
+(defn render-raw [g scene]
+  (render-objs g (gather-objs scene) scene))
 
 (defn render [g {:keys [trans mode action action-start selection export] :as state} mousep]
-  (let [{:keys [objs] :as scene} (transform (:scene (mp (md state mousep) mousep)) trans)]
-    (render-raw g scene)
-    (if (= mode :object)
-      (if-let [sel (get objs (first (keys (select-obj scene (transform-p mousep trans) 20))))]
-        (paint-sel g sel [200 0 200 255] objs)))
-    (doseq [obj-i (keys selection) :let [x (get objs obj-i)]]
-      (if (= mode :mesh)
-        (paint-handles g x)
-        (paint-sel g x [250 200 0 255] objs)))
+  (let [state2 (mp (md state mousep) mousep)
+        {:keys [objs] :as scene} (transform (:scene state2) trans)
+        paint-objs (concat (gather-objs scene)
+                           (if (= mode :object)
+                             (concat (gather-sels (:selection state2) [200 0 200 255] objs)
+                                     (gather-sels selection [255 200 0 255] objs))))]
+    (render-objs g paint-objs objs)
+    (if (= mode :mesh)
+      (doseq [obj-i (keys selection) :let [x (get objs obj-i)]]
+        (paint-handles g x)))
     (set-stroke-width g 1)
     (if export
       (apply draw-rect g (selected-bbox objs selection)))
