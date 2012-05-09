@@ -195,6 +195,13 @@
     (replace! rd @lg newlg)
     (ref-set lg newlg)))
 
+(add-watch rstate :layer
+           (fn [_ _ old-state new-state]
+             (if-not (= (get-in old-state [:scene :layers-ord])
+                        (get-in new-state [:scene :layers-ord]))
+               (dosync
+                (reshow-layer-gui)))))
+
 (defn show-export-gui []
   (add-watch rstate :export
              (fn [_ _ _ _]
@@ -206,30 +213,26 @@
 (defn do-layer-up []
   (dosync
    (alter rstate assoc
-          :scene (move-up-layers-ord (:scene @rstate) (:selected-layer @rstate)))
-   (reshow-layer-gui)))
+          :scene (move-up-layers-ord (:scene @rstate) (:selected-layer @rstate)))))
 
 (defn do-layer-down []
   (dosync
    (alter rstate assoc
-          :scene (move-down-layers-ord (:scene @rstate) (:selected-layer @rstate)))
-   (reshow-layer-gui)))
+          :scene (move-down-layers-ord (:scene @rstate) (:selected-layer @rstate)))))
 
 (defn do-new-layer []
   (dosync
    (let [[newscene newlayeri] (new-layer (:scene @rstate) (:selected-layer @rstate))]
      (alter rstate assoc
             :scene newscene
-            :selected-layer newlayeri))
-   (reshow-layer-gui)))
+            :selected-layer newlayeri))))
 
 (defn do-delete-layer []
   (dosync
    (let [newscene (delete-layer (:scene @rstate) (:selected-layer @rstate))]
      (alter rstate assoc
             :scene newscene
-            :selected-layer (first (:layers-ord newscene))))
-   (reshow-layer-gui)))
+            :selected-layer (first (:layers-ord newscene))))))
 
 (defn layer-gui [{:keys [view edit name] :as layer} layeri selected]
   (horizontal-panel :items
