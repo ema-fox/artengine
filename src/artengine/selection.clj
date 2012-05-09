@@ -10,13 +10,14 @@
       (when fill-color
 	(shape-contains (get-polygon x xs) p))))
 
-(defn select-obj [{:keys [objs layers layers-ord]} mp dist]
-  (let [seli (->> (map (fn [obj-i]
-			 [obj-i (get objs obj-i)])
-		       (reverse (for [layeri layers-ord
-                                      obj-i (get-in layers [layeri :stack])
-                                      :when (get-in layers [layeri :edit])]
-                                  obj-i)))
+(defn selectable-objs [{:keys [objs layers layers-ord]}]
+  (reverse (for [layeri layers-ord
+                 :when (get-in layers [layeri :edit])
+                 obj-i (get-in layers [layeri :stack])]
+             [obj-i (get objs obj-i)])))
+
+(defn select-obj [{:keys [objs] :as scene} mp dist]
+  (let [seli (->> (selectable-objs scene)
 		  (filter (fn [[obj-i x]]
 			    (obj-near? x mp objs dist)))
 		  first
@@ -58,8 +59,8 @@
 	    (contains pa pb p))
 	  (:ps x)))
   
-(defn rect-select-obj [{:keys [stack objs]} pa pb]
-  (->> objs
+(defn rect-select-obj [scene pa pb]
+  (->> (selectable-objs scene)
        (filter (fn [[obj-i x]]
 		 (obj-contains pa pb x)))
        (mapmap (fn [obj-i x] #{}))
