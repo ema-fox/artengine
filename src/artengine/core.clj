@@ -85,7 +85,7 @@
     (render-raw g (transform (:scene @rstate) [@export-scale (mult (first foo) -1)]))
     (ImageIO/write img "png" (file path))))
 
-(defmethod kp [KeyEvent/VK_ESCAPE] [_ _ _]
+(defmethod kp [KeyEvent/VK_Q :ctrl] [_ _ _]
   (System/exit 0))
 
 (defmethod kp [KeyEvent/VK_S :ctrl] [_ state _]
