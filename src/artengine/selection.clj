@@ -8,7 +8,7 @@
 	      (< (line-p-distance pa pb p) dist))
 	    (get-lines x))
       (when fill-color
-	(shape-contains (get-polygon x xs) p))))
+	(shape-contains (get-polygon x xs [0 0]) p))))
 
 (defn selectable-objs [{:keys [objs layers layers-ord]}]
   (reverse (for [layeri layers-ord
