@@ -41,50 +41,17 @@
                               (:ls sib)))))))
     [x]))
 
-(def draw-cache (ref {}))
+(defn paint [g {:keys [fill-color line-color line-width] :as x} xs]
+  (draw g (get-polygon x xs [0 0])
+        (style :background (if fill-color
+                             (apply color fill-color))
+               :foreground (if line-color
+                             (apply color line-color))
+               :stroke (stroke :width line-width
+                               :cap :round
+                               :join :round))))
 
-(defn int-obj [{:keys [ps] :as x}]
-  (assoc x
-    :ps (into {} (mapmap (fn [_ p]
-                           (map #(* 0.01 (int (* 100 %))) p))
-                         ps))))
 
-(defn draw-box [{:keys [ps line-width]}]
-  (let [[pa pb] (bbox (vals ps))
-        foo [line-width line-width]]
-    [(map int (minus pa foo))
-     (plus pb foo)]))
-
-(defn bla-obj [x]
-  (let [bb (draw-box x)]
-    (int-obj (move-obj x (mult (first bb) -1)))))
-
-(def debug false)
-
-(defn paint [g {:keys [ps ls closed clip fill-color line-color line-width] :as x} xs]
-  (let [bb (draw-box x)
-        s (plus (apply minus (reverse bb)) [1 1])]
-    (if (.hitClip g (first (first bb)) (second (first bb)) (first s) (second s))
-      (let [x2 (int-obj (move-obj x (mult (first bb) -1)))]
-        (if-not (get @draw-cache x2)
-          (let [img (apply buffered-image s)
-                g2 (.getGraphics img)]
-            (if debug (print "#"))
-            (anti-alias g2)
-            (draw g2 (get-polygon x2 xs (mult (first bb) -1))
-                  (style :background (if fill-color
-                                       (apply color fill-color))
-                         :foreground (if line-color
-                                       (apply color line-color))
-                         :stroke (stroke :width line-width
-                                         :cap :round
-                                         :join :round)))
-            (dosync
-             (alter draw-cache assoc x2 img)))
-          (if debug (print "-")))
-        (.drawImage g (get @draw-cache x2) nil (int (first (first bb))) (int (second (first bb)))))
-      (if debug (print ".")))
-    (if debug (flush))))
 
 (defn expand-sel [x color xs]
   (expand-sibling (dissoc (assoc x :line-color color :line-width 1) :clip :fill-color) xs))
@@ -101,10 +68,8 @@
     obj))
 
 (defn render-objs [g paint-objs objs]
-  (dosync
-   (alter draw-cache select-keys (map bla-obj paint-objs)))
-  (doseq [x paint-objs]
-    (paint g x objs)))
+  (doseq [obj paint-objs]
+    (paint g obj objs)))
 
 (defn render-raw [g scene]
   (render-objs g (gather-objs scene) scene))

@@ -5,8 +5,9 @@
 	[clojure stacktrace set]
         [clojure.java.io :exclude [copy]])
   (:import [java.awt.event KeyEvent MouseEvent]
-	   [javax.imageio ImageIO]
-	   [java.awt.geom Area]))
+           [javax.imageio ImageIO]
+           [java.awt RenderingHints]
+           [java.awt.geom Area]))
 
 (def rstate (ref {:scene {:objs {} :layers {1 {:stack [] :name "foo" :edit true :view true}} :layers-ord [1]}
                   :selected-layer 1
@@ -66,9 +67,10 @@
 
 (defn paint-canvas [o g]
   (try
+    (.addRenderingHints g (RenderingHints. RenderingHints/KEY_ANTIALIASING
+                                           RenderingHints/VALUE_ANTIALIAS_OFF))
     (render g @rstate @old-mp)
     (catch Exception e
-      (prn @rstate @old-mp)
       (print-cause-trace e)
       (System/exit 0))))
 
