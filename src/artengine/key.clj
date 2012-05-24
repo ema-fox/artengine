@@ -125,6 +125,11 @@
     :action :scale
     :action-start p))
 
+(defmethod kp [KeyEvent/VK_S :shift] [_ state p]
+  (assoc state
+    :action :scale-axis
+    :action-start p))
+
 (defmethod kp [KeyEvent/VK_M] [_ state p]
   (assoc state
     :action :scale-steps

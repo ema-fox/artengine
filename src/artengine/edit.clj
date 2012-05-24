@@ -334,6 +334,21 @@
   (let [origin (selection-avg scene selection)]
     (scale-tool scene selection origin (scale-factor origin pa pb))))
 
+(deftool scale-axis-tool [origin factor]
+  (assoc x
+    :ps (into {} (mapmap (fn [i p]
+                           (let [[pa0 pa1] (minus p origin)]
+                             (plus origin [(* pa0 factor) pa1])))
+                         (:ps x)))))
+
+(defact [:scale-axis :object]
+  (let [origin (selection-avg scene selection)
+        rot (rotate-factor origin pa pb)]
+    (-> scene
+        (rotate-tool selection origin (* -1 rot))
+        (scale-axis-tool selection origin (scale-factor origin pa pb))
+        (rotate-tool selection origin rot))))
+
 (deftool scale-steps-tool [origin factor]
   (if (:steps x)
     (assoc x
