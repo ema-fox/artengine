@@ -89,7 +89,9 @@
 		 (sort-by first)
 		 first
 		 second)]
-    (foo)))
+    (if foo
+      (foo)
+      [scene [nil]])))
 
 (defn append [{:keys [ps ls softs] :as x} p dist]
   (if (< (distance p (get ps (first ls))) dist)
