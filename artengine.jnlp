@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?> 
+<jnlp spec="1.0+" codebase="http://ema-fox.github.com/artengine" href="artengine.jnlp">
+        <information>
+                <title>artengine</title>
+                <vendor>Emanuel Rylke</vendor>
+                <homepage href="http://github.com/ema-fox/artengine" />
+                <description>Vector drawing program</description>
+        </information>
+        <security>
+                <all-permissions/>
+        </security>
+        <resources>
+                <j2se version="1.6+" />
+                <jar href="artengine-0.0.1-standalone.jar" />
+                <extension name="jogl-all-awt" href="http://jogamp.org/deployment/archive/rc/v2.0-rc8/jogl-all-awt.jnlp" />
+        </resources>
+        <application-desc main-class="artengine.core" />
+</jnlp>
