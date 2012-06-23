@@ -40,7 +40,7 @@
                     (alter undostack conj old-state))
                   (do
                     (ref-set redostack ())
-                    (alter undostack conj old-state)))))
+                    (alter undostack #(conj (take 50 %) old-state))))))
              (prn (count @undostack))))
 
 (def export-scale (ref 1))
