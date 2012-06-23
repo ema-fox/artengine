@@ -105,3 +105,8 @@
                             selection
                             {}))))
     :action :normal))
+
+(defmethod mp :mirror [{:keys [scene] :as state} p]
+  (assoc state
+    :scene (mirror scene p)
+    :action :normal))

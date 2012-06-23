@@ -444,3 +444,12 @@
 						      (transform-p p transformation))
 						    (:ps x)))))
 			   objs))))
+
+(defn mirror [{:keys [objs] :as scene} [m0 m1]]
+  (assoc scene
+    :objs (into {} (mapmap (fn [_ {:keys [ps] :as x}]
+                             (assoc x
+                               :ps (into {} (mapmap (fn [_ [p0 p1]]
+                                                      [(+ (* -1 (- p0 m0)) m0) p1])
+                                                    ps))))
+                           objs))))

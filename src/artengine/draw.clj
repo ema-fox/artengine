@@ -1,15 +1,36 @@
 (ns artengine.draw
   (:use [artengine util polygon edit mouse selection]
-        [seesaw color graphics]))
+        [seesaw color graphics])
+  (:import [java.awt.geom FlatteningPathIterator PathIterator]
+           [java.awt BasicStroke Shape Font]
+           [com.jogamp.opengl.util.awt TextRenderer]
+           [javax.media.opengl GL GLCapabilities GLProfile GL2 GLAutoDrawable]
+           [javax.media.opengl.glu GLU GLUtessellatorCallback]))
 
-(defn paint-handle [g p]
-  (set-color g [255 255 255 255])
-  (fill-rect g (minus p [1 1]) [3 3])
-  (set-color g [0 0 0 255])
-  (fill-rect g p [1 1]))
+(set! *warn-on-reflection* true)
 
-(defn paint-solid-handle [g p]
-  (fill-rect g (minus p [1 1]) [3 3]))
+(def cache (ref {}))
+
+(defn set-color [^GL2 gl [c0 c1 c2 c3]]
+  (.glColor4f gl (float (/ c0 255.0)) (float (/ c1 255.0)) (float (/ c2 255.0)) (float (/ c3 255.0))))
+
+(defn draw-rect [^GL2 gl [pa0 pa1] [pb0 pb1]]
+  (doto gl
+    (.glBegin GL/GL_LINE_LOOP)
+    (.glVertex2d pa0 pa1)
+    (.glVertex2d pa0 pb1)
+    (.glVertex2d pb0 pb1)
+    (.glVertex2d pb0 pa1)
+    (.glEnd)))
+
+(defn paint-handle [^GL2 gl [p0 p1]]
+  (set-color gl [255 255 255 255])
+  (.glRectf gl (dec p0) (dec p1) (inc p0) (inc p1))
+  (set-color gl [0 0 0 255])
+  (.glRectf gl (- p0 0.5) (- p1 0.5) (+ p0 0.5) (+ p1 0.5)))
+
+(defn paint-solid-handle [^GL2 gl [p0 p1]]
+  (.glRectf gl (dec p0) (dec p1) (inc p0) (inc p1)))
 
 (defn paint-handles [g {:keys [ps]}]
   (doseq [[i p] ps]
@@ -41,17 +62,98 @@
                               (:ls sib)))))))
     [x]))
 
-(defn paint [g {:keys [fill-color line-color line-width] :as x} xs]
-  (draw g (get-polygon x xs [0 0])
-        (style :background (if fill-color
-                             (apply color fill-color))
-               :foreground (if line-color
-                             (apply color line-color))
-               :stroke (stroke :width line-width
-                               :cap :round
-                               :join :round))))
+(defn tess-vertex [tess xs]
+  (GLU/gluTessVertex tess (double-array xs) 0 xs))
 
+(defn tess-recorder []
+  (let [res (ref ())
+        tess (GLU/gluNewTess)
+        glu (GLU.)
+        tessCB (proxy [GLUtessellatorCallback] []
+                 (begin [type]
+                   (dosync
+                    (alter res conj [type])))
+                 (end [])
+                 (vertex [x]
+                   (dosync
+                    (ref-set res (conj (rest @res) (conj (first @res) x)))))
+                 (combine [coords data weight ^objects outData]
+                   (aset outData 0 (vec coords)))
+                 (error [errnum]
+                   (prn :error (.gluErrorString glu errnum))
+                   (System/exit 1)))]
+    (GLU/gluTessCallback tess GLU/GLU_TESS_VERTEX tessCB)
+    (GLU/gluTessCallback tess GLU/GLU_TESS_BEGIN tessCB)
+    (GLU/gluTessCallback tess GLU/GLU_TESS_END tessCB)
+    (GLU/gluTessCallback tess GLU/GLU_TESS_ERROR tessCB)
+    (GLU/gluTessCallback tess GLU/GLU_TESS_COMBINE tessCB)
+    [tess (fn [] @res)]))
 
+(defn record-fill [pss]
+  (let [[tess resfn] (tess-recorder)]
+    (GLU/gluTessProperty tess GLU/GLU_TESS_WINDING_RULE GLU/GLU_TESS_WINDING_NONZERO)
+    (GLU/gluTessBeginPolygon tess nil)
+    (doseq [ps pss]
+      (GLU/gluTessBeginContour tess)
+      (doseq [[p0 p1] ps]
+        (tess-vertex tess [p0 p1 0]))
+      (GLU/gluTessEndContour tess))
+    (GLU/gluTessEndPolygon tess)
+    (resfn)))
+
+(defn read-path-iterator [^FlatteningPathIterator it]
+  (loop [res ()]
+    (if (.isDone it)
+      res
+      (recur (let [fl (float-array 2)
+                   r (.currentSegment it fl)]
+               (condp = r
+                 PathIterator/SEG_MOVETO
+                 (do
+                   (.next it)
+                   (conj res [fl]))
+                 PathIterator/SEG_LINETO
+                 (do
+                   (.next it)
+                   (conj (rest res) (conj (first res) fl)))
+                 PathIterator/SEG_CLOSE
+                 (do
+                   (.next it)
+                   res)))))))
+
+(defn tess-obj [{:keys [ls ps line-width] :as x} xs]
+  (let [^Shape pol (get-polygon x xs [0 0])
+        flit (FlatteningPathIterator. (.getPathIterator pol nil) 0.1)
+        strpol (.createStrokedShape (BasicStroke. line-width
+                                                  BasicStroke/CAP_ROUND
+                                                  BasicStroke/JOIN_ROUND)
+                                    pol)
+        strflit (FlatteningPathIterator. (.getPathIterator strpol nil) 0.1)]
+    [(record-fill (read-path-iterator strflit))
+     (record-fill (read-path-iterator flit))]))
+
+(defn retrive-obj [obj xs]
+  (when-not (@cache obj)
+    (dosync
+     (alter cache assoc
+            obj (tess-obj obj xs))))
+  (@cache obj))
+
+(defn paint-points [^GL2 gl xss]
+  (doseq [[type & xs] xss]
+    (.glBegin gl type)
+    (doseq [[p0 p1] xs]
+      (.glVertex2d gl p0 p1))
+    (.glEnd gl)))
+
+(defn paint [gl {:keys [fill-color line-color line-width] :as x} xs]
+  (let [[line fill] (retrive-obj x xs)]
+    (when fill-color
+      (set-color gl fill-color)
+      (paint-points gl fill))
+    (when line-color
+      (set-color gl line-color)
+      (paint-points gl line))))
 
 (defn expand-sel [x color xs]
   (expand-sibling (dissoc (assoc x :line-color color :line-width 1) :clip :fill-color) xs))
@@ -67,35 +169,61 @@
         obj (expand-sibling (get objs i) objs)]
     obj))
 
-(defn render-objs [g paint-objs objs]
+
+
+(defn render-objs [gl paint-objs objs]
+  (dosync
+   (alter cache select-keys paint-objs))
   (doseq [obj paint-objs]
-    (paint g obj objs)))
+    (paint gl obj objs)))
 
-(defn render-raw [g scene]
-  (render-objs g (gather-objs scene) scene))
+(defn prepare-gl [^GL2 gl trans size]
+  (.glMatrixMode gl GL2/GL_MODELVIEW)
+  (.glLoadIdentity gl)
+  (.glTranslatef gl -1 1 0)
+  (let [[a0 a1] size
+        [bar [b0 b1]] trans]
+    (.glViewport gl 0 0 a0 a1)
+    (.glScalef gl (/ 2 a0) (/ -2 a1) 1)
+    (.glScalef gl bar bar 1)
+    (.glTranslatef gl b0 b1 0))
+  (.glClearColor gl 0.5 0.5 0.5 1)
+  (.glClear gl GL/GL_COLOR_BUFFER_BIT)
+  (.glEnable gl GL/GL_BLEND)
+  (.glBlendFunc gl GL/GL_SRC_ALPHA GL/GL_ONE_MINUS_SRC_ALPHA))
 
-(defn render [g {:keys [trans mode action action-start selection export] :as state} mousep]
-  (let [state2 (mp (md state mousep) mousep)
-        {:keys [objs] :as scene} (transform (:scene state2) trans)
+(defn render-raw [gl scene trans size]
+  (prepare-gl gl trans size)
+  (render-objs gl (gather-objs scene) (:objs scene))
+  (.glFlush gl))
+
+(defn render [^GL2 gl {:keys [trans mode action action-start selection export] :as state}
+              mousep size]
+  (let [state2 (mp (md state (plus mousep [0.1 0.1])) (plus mousep [0.1 0.1]))
+        {:keys [objs] :as scene} (:scene state2)
         paint-objs (concat (gather-objs scene)
                            (if (= mode :object)
                              (concat (gather-sels (:selection state2) [200 0 200 255] objs)
                                      (gather-sels selection [255 200 0 255] objs))))]
-    (render-objs g paint-objs objs)
+    (prepare-gl gl trans size)
+    (render-objs gl paint-objs objs)
     (if (= mode :mesh)
       (doseq [obj-i (keys selection) :let [x (get objs obj-i)]]
-        (paint-handles g x)))
-    (set-stroke-width g 1)
+        (paint-handles gl x)))
     (if export
-      (apply draw-rect g (selected-bbox objs selection)))
-    (set-color g [250 200 0 255])
+      (apply draw-rect gl (selected-bbox objs selection)))
+    (set-color gl [250 200 0 255])
     (when (= mode :mesh)
       (doseq [[obj-i is] selection
               i is
               :let [p (get (:ps (get objs obj-i)) i)]]
-        (paint-solid-handle g p))))
+        (paint-solid-handle gl p))))
   (if (= action :select)
-    (draw-rect g (transform-p action-start trans) (transform-p mousep trans)))
-  (set-color g [0 0 0 255])
-  (.drawString g (str mode) 10 20)
-  (.drawString g (str action) 10 40))
+    (draw-rect gl action-start mousep))
+  (let [rnd (TextRenderer. (Font. "SansSerif" Font/PLAIN 12))]
+    (.beginRendering rnd (first size) (second size))
+    (.setColor rnd 0 0 0 1)
+    (.draw rnd (str mode) 10 20)
+    (.draw rnd (str action) 10 40)
+    (.endRendering rnd))
+  (.glFlush gl))

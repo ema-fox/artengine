@@ -142,3 +142,7 @@
 
 (defmethod kp [KeyEvent/VK_Y] [_ state p]
   (assoc state :action :pick-style))
+
+(defmethod kp [KeyEvent/VK_T] [_ {:keys [scene] :as state} p]
+  (assoc state
+    :action :mirror))

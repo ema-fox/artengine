@@ -5,6 +5,11 @@
 	[clojure stacktrace set]
         [clojure.java.io :exclude [copy]])
   (:import [java.awt.event KeyEvent MouseEvent]
+           [java.awt Frame]
+           [javax.media.opengl.awt GLCanvas]
+           [javax.media.opengl GLEventListener GL GLCapabilities GLProfile GL2 GLAutoDrawable GLDrawableFactory]
+           [javax.media.opengl.glu GLU GLUtessellatorCallback]
+           [com.jogamp.opengl.util.awt Screenshot]
            [javax.imageio ImageIO]
            [java.awt RenderingHints]
            [java.awt.geom Area]))
@@ -35,7 +40,8 @@
                     (alter undostack conj old-state))
                   (do
                     (ref-set redostack ())
-                    (alter undostack conj old-state)))))))
+                    (alter undostack conj old-state)))))
+             (prn (count @undostack))))
 
 (def export-scale (ref 1))
 
@@ -81,11 +87,27 @@
 
 (defn export [path]
   (let [[foo bla] (export-stuff @rstate @export-scale)
-        img (apply buffered-image bla)
-	g (.getGraphics img)]
-    (anti-alias g)
-    (render-raw g (transform (:scene @rstate) [@export-scale (mult (first foo) -1)]))
-    (ImageIO/write img "png" (file path))))
+        fact (GLDrawableFactory/getDesktopFactory)
+        cont (.getContext can)
+        pbuffer (.createGLPbuffer fact
+                                  nil
+                                  (GLCapabilities. (GLProfile/getDefault))
+                                  nil
+                                  (first bla) (second bla)
+                                  cont)]
+    (.addGLEventListener pbuffer (proxy [GLEventListener] []
+                                   (init [d])
+                                   (reshape [& xs])
+                                   (display [^GLAutoDrawable d]
+                                     (let [gl (.getGL2 (.getGL d))]
+                                       (render-raw gl
+                                                   (:scene @rstate)
+                                                   [@export-scale (mult (first foo) -1)]
+                                                   bla)
+                                       (ImageIO/write (Screenshot/readToBufferedImage (first bla)
+                                                                                      (second bla))
+                                                      "png" (file path))))))
+    (.display pbuffer)))
 
 (defmethod kp [KeyEvent/VK_Q :ctrl] [_ _ _]
   (System/exit 0))
@@ -316,17 +338,27 @@
                                         :listen [:mouse-released
                                                  (fn [e] (do-cancel-export))])])])))
 
+(def size (ref [0 0]))
+
 (defn -main []
-  (def can (canvas :paint paint-canvas :background "#808080"))
+  (def can (GLCanvas.))
+  (def fr (Frame.))
+  (.addGLEventListener can (proxy [GLEventListener] []
+                             (init [d])
+                             (display [^GLAutoDrawable d]
+                               (let [gl (.getGL2 (.getGL d))]
+                                 (render gl @rstate @old-mp @size)))
+                             (reshape [d x y w h]
+                               (dosync
+                                (ref-set size [w h])))))
   (def layer-radios (button-group))
   (def lg (ref (layers-gui)))
   (def exp (ref (label "")))
   (def rd (border-panel :north @lg
                         :center :fill-v
                         :south @exp))
-  (def fr (frame :content (border-panel
-                           :center can
-                           :east rd)))
+  (def fr (Frame.))
+  (.add fr (border-panel :center can :east rd))
   (.setFocusTraversalKeysEnabled can false)
   (listen can
           :key-pressed key-pressed
