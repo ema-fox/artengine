@@ -68,7 +68,6 @@
 (defn tess-recorder []
   (let [res (ref ())
         tess (GLU/gluNewTess)
-        glu (GLU.)
         tessCB (proxy [GLUtessellatorCallback] []
                  (begin [type]
                    (dosync
@@ -80,14 +79,16 @@
                  (combine [coords data weight ^objects outData]
                    (aset outData 0 (vec coords)))
                  (error [errnum]
-                   (prn :error (.gluErrorString glu errnum))
+                   (prn :error (.gluErrorString (GLU.) errnum))
                    (System/exit 1)))]
     (GLU/gluTessCallback tess GLU/GLU_TESS_VERTEX tessCB)
     (GLU/gluTessCallback tess GLU/GLU_TESS_BEGIN tessCB)
     (GLU/gluTessCallback tess GLU/GLU_TESS_END tessCB)
     (GLU/gluTessCallback tess GLU/GLU_TESS_ERROR tessCB)
     (GLU/gluTessCallback tess GLU/GLU_TESS_COMBINE tessCB)
-    [tess (fn [] @res)]))
+    [tess (fn []
+            (GLU/gluDeleteTess tess)
+            @res)]))
 
 (defn record-fill [pss]
   (let [[tess resfn] (tess-recorder)]
@@ -225,5 +226,6 @@
     (.setColor rnd 0 0 0 1)
     (.draw rnd (str mode) 10 20)
     (.draw rnd (str action) 10 40)
-    (.endRendering rnd))
+    (.endRendering rnd)
+    (.dispose rnd))
   (.glFlush gl))
