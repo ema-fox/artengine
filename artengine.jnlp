@@ -11,7 +11,7 @@
         </security>
         <resources>
                 <j2se version="1.6+" />
-                <jar href="artengine-0.0.1-standalone.jar" />
+                <jar href="artengine-0.0.2-standalone.jar" />
                 <extension name="jogl-all-awt" href="http://jogamp.org/deployment/archive/rc/v2.0-rc8/jogl-all-awt.jnlp" />
         </resources>
         <application-desc main-class="artengine.core" />
