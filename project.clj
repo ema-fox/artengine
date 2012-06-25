@@ -1,4 +1,4 @@
-(defproject artengine "0.0.1"
+(defproject artengine "0.0.2"
   :description "vector drawing program"
   :main artengine.core
   :extra-classpath-dirs ~(.listFiles (File. "jogamp"))
