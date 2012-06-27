@@ -174,6 +174,7 @@
 
 (defn render-objs [gl paint-objs objs]
   (dosync
+   (clean-shape-cache paint-objs)
    (alter cache select-keys paint-objs))
   (doseq [obj paint-objs]
     (paint gl obj objs)))
@@ -193,7 +194,7 @@
   (.glEnable gl GL/GL_BLEND)
   (.glBlendFunc gl GL/GL_SRC_ALPHA GL/GL_ONE_MINUS_SRC_ALPHA))
 
-(defn render-raw [gl scene trans size]
+(defn render-raw [^GL2 gl scene trans size]
   (prepare-gl gl trans size)
   (render-objs gl (gather-objs scene) (:objs scene))
   (.glFlush gl))
