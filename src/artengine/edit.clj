@@ -1,6 +1,8 @@
 (ns artengine.edit
-  (:use [artengine.util]
-	[clojure.set]))
+  (:use [artengine util polygon]
+	[clojure.set])
+  (:import [java.awt.geom Area]))
+
 
 (def actions (ref {}))
 
@@ -361,24 +363,30 @@
   (let [origin (selection-avg scene selection)]
     (scale-steps-tool scene selection origin (scale-factor origin pa pb))))
 
-(defn move-down [stack sel-objs]
-  (loop [s stack
-	 res []]
-    (if (< 1 (count s))
-      (let [[a b & d] s]
-	(if (and ((set sel-objs) b) (not ((set sel-objs) a)))
-	  (recur (cons a d) (conj res b))
-	  (recur (cons b d) (conj res a))))
-      (vec (concat res s)))))
+(defn intersect? [obja objb objs]
+  (not (.isEmpty (doto (Area. (get-polygon obja objs))
+                        (.intersect (Area. (get-polygon objb objs)))))))
+
+(defn move-down [stack sel-objs objs]
+  (let [sel? (set sel-objs)
+        [as bs] (split-with #(not (sel? %)) stack)
+        tail (filter #(not (sel? %)) bs)
+        sels (filter sel? bs)
+        [middle [bfmiddle & begin]] (split-with (fn [obj-i]
+                                     (not (some #(intersect? (get objs obj-i) (get objs %) objs)
+                                                sel-objs)))
+                                   (reverse as))]
+    (vec (concat (reverse begin) sels (if bfmiddle [bfmiddle]) (reverse middle) tail))))
 
 (defn move-down-stack [{:keys [layers objs] :as scene} sel-objs layeri]
   (assoc-in scene [:layers layeri :stack] (move-down (get-in layers [layeri :stack])
-                                                     (keys sel-objs))))
+                                                     (keys sel-objs)
+                                                     objs)))
 
 (defn move-up-stack [{:keys [layers objs] :as scene} sel-objs layeri]
   (assoc-in scene [:layers layeri :stack] (-> (get-in layers [layeri :stack])
                                               reverse
-                                              (move-down (keys sel-objs))
+                                              (move-down (keys sel-objs) objs)
                                               reverse
                                               vec)))
 

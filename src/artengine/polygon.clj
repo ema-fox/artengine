@@ -1,5 +1,5 @@
 (ns artengine.polygon
-  (:use [artengine util edit]
+  (:use [artengine util]
         seesaw.graphics)
   (:import [java.awt.geom Area GeneralPath]))
 
@@ -45,8 +45,8 @@
         (line-to path (get ps (last ls)))))
     path))
 
-(defn get-polygon [{:keys [clip] :as x} xs offset]
+(defn get-polygon [{:keys [clip] :as x} xs]
   (let [pol (make-path x)]
     (if clip
-      (clip-polygon pol (get-polygon (move-obj (get xs clip) offset) xs offset) (:line-width (get xs clip)))
+      (clip-polygon pol (get-polygon (get xs clip) xs) (:line-width (get xs clip)))
       pol)))

@@ -123,7 +123,7 @@
                    res)))))))
 
 (defn tess-obj [{:keys [ls ps line-width] :as x} xs]
-  (let [^Shape pol (get-polygon x xs [0 0])
+  (let [^Shape pol (get-polygon x xs)
         flit (FlatteningPathIterator. (.getPathIterator pol nil) 0.1)
         strpol (.createStrokedShape (BasicStroke. line-width
                                                   BasicStroke/CAP_ROUND

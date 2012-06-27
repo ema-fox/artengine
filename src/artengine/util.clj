@@ -111,8 +111,8 @@
      (let [p (.inverseTransform (make-transformation transformation) (.getPoint e) nil)]
        [(.getX p) (.getY p)])))
 
-(defn dbg [x]
-  (prn x)
+(defn dbg [x & msg]
+  (prn msg x)
   x)
 
 (defn get-color [c1]
