@@ -23,18 +23,19 @@
     (.glVertex2d pb0 pa1)
     (.glEnd)))
 
-(defn paint-handle [^GL2 gl [p0 p1]]
+(defn paint-handle [^GL2 gl [p0 p1] size]
   (set-color gl [255 255 255 255])
-  (.glRectf gl (dec p0) (dec p1) (inc p0) (inc p1))
+  (.glRectf gl (- p0 (* 2 size)) (- p1 (* 2 size)) (+ p0 (* 2 size)) (+ p1 (* 2 size)))
   (set-color gl [0 0 0 255])
-  (.glRectf gl (- p0 0.5) (- p1 0.5) (+ p0 0.5) (+ p1 0.5)))
+  (.glRectf gl (- p0 size) (- p1 size) (+ p0 size) (+ p1 size)))
 
-(defn paint-solid-handle [^GL2 gl [p0 p1]]
-  (.glRectf gl (dec p0) (dec p1) (inc p0) (inc p1)))
 
-(defn paint-handles [g {:keys [ps]}]
+(defn paint-solid-handle [^GL2 gl [p0 p1] size]
+  (.glRectf gl (- p0 (* 2 size)) (- p1 (* 2 size)) (+ p0 (* 2 size)) (+ p1 (* 2 size))))
+
+(defn paint-handles [g {:keys [ps]} size]
   (doseq [[i p] ps]
-    (paint-handle g p)))
+    (paint-handle g p size)))
 
 (declare paint)
 
@@ -156,12 +157,12 @@
       (set-color gl line-color)
       (paint-points gl line))))
 
-(defn expand-sel [x color xs]
-  (expand-sibling (dissoc (assoc x :line-color color :line-width 1) :clip :fill-color) xs))
+(defn expand-sel [x color xs size]
+  (expand-sibling (dissoc (assoc x :line-color color :line-width size) :clip :fill-color) xs))
 
-(defn gather-sels [selection color xs]
+(defn gather-sels [selection color xs size]
   (apply concat (for [i (keys selection)]
-                  (expand-sel (get xs i) color xs))))
+                  (expand-sel (get xs i) color xs size))))
 
 (defn gather-objs [{:keys [layers layers-ord objs]}]
   (for [layeri layers-ord
@@ -203,15 +204,16 @@
               mousep size]
   (let [state2 (mp (md state (plus mousep [0.1 0.1])) (plus mousep [0.1 0.1]))
         {:keys [objs] :as scene} (:scene state2)
+               sel-size (/ 1 (first trans))
         paint-objs (concat (gather-objs scene)
                            (if (= mode :object)
-                             (concat (gather-sels (:selection state2) [200 0 200 255] objs)
-                                     (gather-sels selection [255 200 0 255] objs))))]
+                             (concat (gather-sels (:selection state2) [200 0 200 255] objs sel-size)
+                                     (gather-sels selection [255 200 0 255] objs sel-size))))]
     (prepare-gl gl trans size)
     (render-objs gl paint-objs objs)
     (if (= mode :mesh)
       (doseq [obj-i (keys selection) :let [x (get objs obj-i)]]
-        (paint-handles gl x)))
+        (paint-handles gl x sel-size)))
     (if export
       (apply draw-rect gl (selected-bbox objs selection)))
     (set-color gl [250 200 0 255])
@@ -219,7 +221,7 @@
       (doseq [[obj-i is] selection
               i is
               :let [p (get (:ps (get objs obj-i)) i)]]
-        (paint-solid-handle gl p))))
+        (paint-solid-handle gl p sel-size))))
   (if (= action :select)
     (draw-rect gl action-start mousep))
   (let [rnd (TextRenderer. (Font. "SansSerif" Font/PLAIN 12))]
