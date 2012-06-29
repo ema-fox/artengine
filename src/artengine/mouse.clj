@@ -55,7 +55,7 @@
     :action-start p))
 
 (defn selection-dist [trans]
-  (/ 20 (first trans)))
+  (/ 10 (first trans)))
 
 (defmethod mp :clip [{:keys [scene selection trans] :as state} p]
   (assoc (if-let [clip (first (keys (select-obj scene p (selection-dist trans))))]
