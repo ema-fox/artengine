@@ -14,7 +14,10 @@
 (defn clip-polygon [pol1 pol2 stroke-width]
   (doto (Area. pol2)
     (.intersect (Area. pol1))
-    (.subtract (Area. (.createStrokedShape ^BasicStroke (to-stroke (max 0 (- stroke-width 0.01))) pol2)))))
+    (.subtract (Area. (.createStrokedShape (BasicStroke. (max 0 (- stroke-width 0.01))
+                                                         BasicStroke/CAP_ROUND
+                                                         BasicStroke/JOIN_ROUND)
+                                           pol2)))))
 
 (defn move-to [^GeneralPath path [^Float p0 ^Float p1]]
   (.moveTo path p0 p1))
