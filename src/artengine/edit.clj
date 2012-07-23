@@ -60,10 +60,11 @@
 	 (range)
 	 (rest (range)))))
 
-(defn index-of
-  "when x is not in xs returns (count xs)"
-  [xs x]
-  (count (take-while #(not= x %) xs)))
+(defn index-of [xs x]
+  (some identity (map-indexed (fn [i y]
+                                (if (= y x)
+                                  i))
+                              xs)))
 
 (defn extend-sibling [{:keys [ps ls softs] :as x} i]
   (let [newi (get-new-key ps)
@@ -414,13 +415,18 @@
     :layers (layer-move-down layers (reverse layers-ord) selection)))
 
 (defn move-down-layers-ord [{:keys [layers-ord] :as scene} layeri]
-  (assoc scene :layers-ord (move-down layers-ord [layeri])))
+  (let [si (index-of layers-ord layeri)
+        di (max 0 (dec si))]
+    (assoc scene :layers-ord (assoc (vec layers-ord)
+                               si (nth layers-ord di)
+                               di (nth layers-ord si)))))
 
 (defn move-up-layers-ord [{:keys [layers-ord] :as scene} layeri]
-  (assoc scene :layers-ord (-> layers-ord
-                               reverse
-                               (move-down [layeri])
-                               reverse)))
+  (let [si (index-of layers-ord layeri)
+        di (min (dec (count layers-ord)) (inc si))]
+    (assoc scene :layers-ord (assoc (vec layers-ord)
+                               si (nth layers-ord di)
+                               di (nth layers-ord si)))))
 
 (defn new-layer [{:keys [layers layers-ord] :as scene} layeri]
   (let [newi (get-new-key layers)]
