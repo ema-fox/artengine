@@ -5,7 +5,7 @@
 	[clojure stacktrace set]
         [clojure.java.io :exclude [copy]])
   (:import [java.awt.event KeyEvent MouseEvent]
-           [java.awt Frame]
+           [java.awt Frame Dimension]
            [javax.media.opengl.awt GLCanvas]
            [javax.media.opengl GLEventListener GL GLCapabilities GLProfile GL2 GLAutoDrawable GLDrawableFactory]
            [javax.media.opengl.glu GLU GLUtessellatorCallback]
@@ -340,7 +340,8 @@
 (def size (ref [0 0]))
 
 (defn -main []
-  (def can (GLCanvas.))
+  (def can (doto (GLCanvas.)
+             (.setPreferredSize (Dimension. 600 600))))
   (def fr (Frame.))
   (.addGLEventListener can (proxy [GLEventListener] []
                              (init [d])
@@ -365,6 +366,7 @@
 	  :mouse-released mouse-released
 	  #{:mouse-moved :mouse-dragged} mouse-moved
 	  :mouse-wheel-moved mouse-wheeled)
+  (pack! fr)
   (show! fr)
   (request-focus! can)
   nil)
