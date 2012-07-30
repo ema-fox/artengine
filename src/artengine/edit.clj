@@ -138,7 +138,9 @@
   (let [newis (take (count selection) (iterate inc (get-new-key objs)))
         foo (into {} (map vector (keys selection) newis))]
     [(assoc scene
-       :layers (add-to-stack layers layeri (keep #(get foo %) (get-in layers [layeri :stack])));bug when copieng obj that's not on current layer
+       :layers (add-to-stack layers layeri (keep #(get foo %) (mapcat (fn [[_ {:keys [stack]}]]
+                                                                        stack)
+                                                                      layers)))
        :objs (into objs (map (fn [[obj-i newi]]
 			       [newi (copy-helper (get objs obj-i) foo)])
                              foo)))
@@ -195,6 +197,7 @@
   (fix (assoc scene
 	 :objs (apply dissoc objs (keys selection)))))
 
+;handle sibling case
 (defn delete-ps [{:keys [ps ls] :as x} selis]
   (assoc x
     :ps (apply dissoc ps selis)
