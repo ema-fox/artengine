@@ -89,9 +89,7 @@
                                               obj-i x)))
                                   [obj-i i]])))
 		 (apply concat)
-		 (sort-by first)
-		 first
-		 second)]
+                 lowest-scored)]
     (if foo
       (foo)
       [scene [nil]])))

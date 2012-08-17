@@ -13,6 +13,11 @@
 (defn insert-at [i xs x]
   (concat (take i xs) [x] (drop i xs)))
 
+(defn lowest-scored [xs]
+  (->> (sort-by first xs)
+       first
+       second))
+
 (defn ^:static minus [[pa0 pa1] [pb0 pb1]]
   [(- pa0 pb0) (- pa1 pb1)])
 

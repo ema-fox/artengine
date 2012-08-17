@@ -37,9 +37,7 @@
 			     (map (fn [[p i]]
 				    [(distance mp p) i]))
 			     (filter #(< (first %) dist))
-			     (sort-by first)
-			     first
-			     second)]
+                             lowest-scored)]
     (into {} (mapmap (fn [obj-i _]
 		       (if (= sel-obj obj-i)
 			 #{sel-i}
