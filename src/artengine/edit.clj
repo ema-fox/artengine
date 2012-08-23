@@ -349,7 +349,7 @@
 
 (defact [:scale-axis :object]
   (let [origin (selection-avg scene selection)
-        rot (rotate-factor origin pa pb)]
+        rot (rotate-factor origin (plus origin [1 0]) pb)]
     (-> scene
         (rotate-tool selection origin (* -1 rot))
         (scale-axis-tool selection origin (scale-factor origin pa pb))
