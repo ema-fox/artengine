@@ -468,3 +468,47 @@
                                                       [(+ (* -1 (- p0 m0)) m0) p1])
                                                     ps))))
                            objs))))
+
+(defn join-helper2 [obja objb]
+  (let [newis (take (count (:ls objb)) (iterate inc (get-new-key (:ps obja))))]
+    (assoc obja
+      :ls (concat (:ls obja) newis)
+      :ps (into (:ps obja) (map (fn [newi oldi]
+                                  [newi (get-in objb [:ps oldi])])
+                                newis
+                                (:ls objb))))))
+
+(defn every&rest [xs]
+  (for [i (range (count xs))]
+    [(nth xs i) (concat (take i xs) (drop (inc i) xs))]))
+
+(defn join-helper [objs]
+  (let [[x & xs] objs]
+    (if (seq xs)
+      (recur ((->> (for [[y ys] (every&rest xs)
+                            flippedx [true false]
+                            flippedy [true false]]
+                        [(distance (get-in x [:ps ((if flippedx
+                                                     first
+                                                     last)
+                                                   (:ls x))])
+                                   (get-in y [:ps ((if flippedy
+                                                     last
+                                                     first)
+                                                   (:ls y))]))
+                         #(conj ys (join-helper2 (if flippedx
+                                                   (update-in x [:ls] reverse)
+                                                   x)
+                                                 (if flippedy
+                                                   (update-in y [:ls] reverse)
+                                                   y)))])
+                      (sort-by first)
+                      first
+                      second)))
+      x)))
+
+(defn join-objs [{:keys [objs] :as scene} selection]
+  (fix (assoc scene
+         :objs (let [selobjs (keys selection)]
+                 (assoc (apply dissoc objs (rest selobjs))
+                   (first selobjs) (join-helper (map objs selobjs)))))))
