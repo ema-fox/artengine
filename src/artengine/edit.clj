@@ -262,11 +262,11 @@
 
 (deftool obj-soft []
   (assoc x :softs (into {} (mapmap (constantly true)
-                                   (:softs x)))))
+                                   (:ps x)))))
 
 (deftool obj-unsoft []
   (assoc x :softs (into {} (mapmap (constantly false)
-                                   (:softs x)))))
+                                   (:ps x)))))
 
 (defn move-obj [x movement]
   (assoc x
