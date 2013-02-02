@@ -47,7 +47,8 @@
     state))
 
 (defmethod kp [KeyEvent/VK_J] [_ state _]
-  (act state join-objs))
+  (assoc (act state join-objs)
+    :selection {}))
 
 (defmethod kp [KeyEvent/VK_O] [_ state _]
   (act state close))
