@@ -44,21 +44,40 @@
     (distance p pf)))
 
 (defn extend-obj [{:keys [ps ls closed softs] :as x} p retfn]
-  (map (fn [[ia ib] i]
-	 [(let [pa (get ps ia)
-                pb (get ps ib)]
-            (line-p-distance pa pb p))
-          (fn []
-             (let [newi (get-new-key ps)]
-              (retfn [(assoc x
-                        :ps (assoc ps newi p)
-                        :softs (assoc softs newi (or (get softs ia) (get softs ib)))
-                        :ls (insert-at i ls newi))
-                      newi])))])
-       (get-ilines x)
-       (if closed
-	 (range)
-	 (rest (range)))))
+  (let [foo (map (fn [[ia ib] i]
+                   [(let [pa (get ps ia)
+                          pb (get ps ib)]
+                      (line-p-distance pa pb p))
+                    (fn []
+                      (let [newi (get-new-key ps)]
+                        (retfn [(assoc x
+                                  :ps (assoc ps newi p)
+                                  :softs (assoc softs newi (or (get softs ia) (get softs ib)))
+                                  :ls (insert-at i ls newi))
+                                newi])))])
+                 (get-ilines x)
+                 (if closed
+                   (range)
+                   (rest (range))))]
+    (if closed
+      foo
+      (conj foo
+            [(distance p (get ps (first ls)))
+             (fn []
+               (let [newi (get-new-key ps)]
+                 (retfn [(assoc x
+                           :ps (assoc ps newi p)
+                           :softs (assoc softs newi (get softs (first ls)))
+                           :ls (concat [newi] ls))
+                         newi])))]
+            [(distance p (get ps (last ls)))
+             (fn []
+               (let [newi (get-new-key ps)]
+                 (retfn [(assoc x
+                           :ps (assoc ps newi p)
+                           :softs (assoc softs newi (get softs (last ls)))
+                           :ls (concat ls [newi]))
+                         newi])))]))))
 
 (defn index-of [xs x]
   (some identity (map-indexed (fn [i y]
