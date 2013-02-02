@@ -4,6 +4,8 @@
   (:import [java.awt.geom FlatteningPathIterator PathIterator]
            [java.awt BasicStroke Shape Font]
            [com.jogamp.opengl.util.awt TextRenderer]
+           [com.jogamp.common.nio Buffers]
+           [java.nio FloatBuffer]
            [javax.media.opengl GL GLCapabilities GLProfile GL2 GLAutoDrawable]
            [javax.media.opengl.glu GLU GLUtessellatorCallback]))
 
@@ -28,7 +30,6 @@
   (.glRectf gl (- p0 (* 2 size)) (- p1 (* 2 size)) (+ p0 (* 2 size)) (+ p1 (* 2 size)))
   (set-color gl [0 0 0 255])
   (.glRectf gl (- p0 size) (- p1 size) (+ p0 size) (+ p1 size)))
-
 
 (defn paint-solid-handle [^GL2 gl [p0 p1] size]
   (.glRectf gl (- p0 (* 2 size)) (- p1 (* 2 size)) (+ p0 (* 2 size)) (+ p1 (* 2 size))))
@@ -91,6 +92,16 @@
             (GLU/gluDeleteTess tess)
             @res)]))
 
+(defn to-buffered [xss]
+  (for [[type & xs] xss
+        :let [buf (Buffers/newDirectFloatBuffer (* 2 (count xs)))]]
+    (do
+      (doseq [[^Float p0 ^Float p1] xs]
+        (.put buf p0)
+        (.put buf p1))
+      (.flip buf)
+      [type buf])))
+
 (defn record-fill [pss]
   (let [[tess resfn] (tess-recorder)]
     (GLU/gluTessProperty tess GLU/GLU_TESS_WINDING_RULE GLU/GLU_TESS_WINDING_NONZERO)
@@ -101,7 +112,7 @@
         (tess-vertex tess [p0 p1 0]))
       (GLU/gluTessEndContour tess))
     (GLU/gluTessEndPolygon tess)
-    (resfn)))
+    (to-buffered (resfn))))
 
 (defn read-path-iterator [^FlatteningPathIterator it]
   (loop [res ()]
@@ -148,14 +159,20 @@
       (.glVertex2d gl p0 p1))
     (.glEnd gl)))
 
+(defn paint-buffered-points [^GL2 gl xss]
+  (doseq [[type ^FloatBuffer buf] xss]
+    (.rewind buf)
+    (.glVertexPointer gl 2 GL2/GL_FLOAT 0 buf)
+    (.glDrawArrays gl type 0 (/ (.limit buf) 2))))
+
 (defn paint [gl {:keys [fill-color line-color line-width] :as x} xs]
   (let [[line fill] (retrive-obj x xs)]
     (when fill-color
       (set-color gl fill-color)
-      (paint-points gl fill))
+      (paint-buffered-points gl fill))
     (when line-color
       (set-color gl line-color)
-      (paint-points gl line))))
+      (paint-buffered-points gl line))))
 
 (defn expand-sel [x color xs size]
   (expand-sibling (dissoc (assoc x :line-color color :line-width size) :clip :fill-color) xs))
@@ -171,14 +188,14 @@
         obj (expand-sibling (get objs i) objs)]
     obj))
 
-
-
-(defn render-objs [gl paint-objs objs]
+(defn render-objs [^GL2 gl paint-objs objs]
   (dosync
    (clean-shape-cache paint-objs)
    (alter cache select-keys paint-objs))
+  (.glEnableClientState gl GL2/GL_VERTEX_ARRAY)
   (doseq [obj paint-objs]
-    (paint gl obj objs)))
+    (paint gl obj objs))
+  (.glDisableClientState gl GL2/GL_VERTEX_ARRAY))
 
 (defn prepare-gl [^GL2 gl trans size]
   (.glMatrixMode gl GL2/GL_MODELVIEW)
