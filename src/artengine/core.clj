@@ -175,10 +175,6 @@
 (defn mouse-moved [e]
   (handle-move (get-pos e (:trans @rstate))))
 
-(defn do-adjust-line [amount]
-  (dosync
-   (alter rstate act adjust-line amount)))
-
 (defn mouse-pressed [e]
   (dosync
    (let [p (get-pos e (:trans @rstate))]
@@ -205,12 +201,25 @@
        nil))
    (repaint! can)))
 
+(defn do-wheel [rot shift state]
+  (if shift
+    (act state adjust-line rot)
+    (update-in state [:trans 0] #(* % (Math/pow 0.9 rot)))))
+
 (defn mouse-wheeled [e]
-  (dosync
-   (if (.isShiftDown e)
-     (do-adjust-line (.getWheelRotation e))
-     (alter rstate assoc-in [:trans 0] (* (get-in @rstate [:trans 0]) (Math/pow 0.9 (.getWheelRotation e))))))
-  (repaint! can))
+  (alter rstate do-wheel (.getWheelRotation e) (.isShiftDown e)))
+
+(defmethod kp [KeyEvent/VK_PLUS] [_ state _]
+  (do-wheel -1 false state))
+
+(defmethod kp [KeyEvent/VK_PLUS :shift] [_ state _]
+  (do-wheel -1 true state))
+
+(defmethod kp [KeyEvent/VK_MINUS] [_ state _]
+  (do-wheel 1 false state))
+
+(defmethod kp [KeyEvent/VK_MINUS :shift] [_ state _]
+  (do-wheel 1 true state))
 
 (defn reshow-layer-gui []
   (repaint! can)
