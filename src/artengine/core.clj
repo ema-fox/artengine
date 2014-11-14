@@ -70,15 +70,6 @@
     (value! (s/select @exp [:#export0]) (first bla))
     (value! (s/select @exp [:#export1]) (second bla))))
 
-(defn paint-canvas [o g]
-  (try
-    (.addRenderingHints g (RenderingHints. RenderingHints/KEY_ANTIALIASING
-                                           RenderingHints/VALUE_ANTIALIAS_OFF))
-    (render g @rstate @old-mp)
-    (catch Exception e
-      (print-cause-trace e)
-      (System/exit 0))))
-
 (defn export-stuff [{:keys [scene selection]} scale]
   (let [foo (selected-bbox (:objs scene) selection)]
     [foo
