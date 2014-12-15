@@ -116,9 +116,10 @@
      (let [p (.inverseTransform (make-transformation transformation) (.getPoint e) nil)]
        [(.getX p) (.getY p)])))
 
-(defn dbg [x & msg]
-  (prn msg x)
-  x)
+(defmacro dbg [& xs]
+  `(let [res# ~xs]
+     (prn '~xs res#)
+     res#))
 
 (defn get-color [c1]
   (if-let [c2 (choose-color :color (apply color c1))]

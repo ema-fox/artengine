@@ -174,6 +174,8 @@
        (alter rstate md p)
        MouseEvent/BUTTON2
        (ref-set dragging true)
+       MouseEvent/BUTTON3
+       (ref-set dragging true)
        nil))))
 
 (defn mouse-released [e]
@@ -188,7 +190,9 @@
        MouseEvent/BUTTON2
        (ref-set dragging false)
        MouseEvent/BUTTON3
-       (alter rstate assoc :action :normal)
+       (do
+         (alter rstate assoc :action :normal)
+         (ref-set dragging false))
        nil))
    (repaint! can)))
 
@@ -198,7 +202,9 @@
     (update-in state [:trans 0] #(* % (Math/pow 0.9 rot)))))
 
 (defn mouse-wheeled [e]
-  (alter rstate do-wheel (.getWheelRotation e) (.isShiftDown e)))
+  (dosync
+   (alter rstate do-wheel (.getWheelRotation e) (.isShiftDown e) (.isControlDown e)))
+  (repaint! can))
 
 (defmethod kp [KeyEvent/VK_PLUS] [_ state _]
   (do-wheel -1 false state))
