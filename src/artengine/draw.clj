@@ -3,6 +3,7 @@
         [seesaw color graphics])
   (:import [java.awt.geom FlatteningPathIterator PathIterator]
            [java.awt BasicStroke Shape Font]
+           [java.awt.geom GeneralPath]
            [com.jogamp.opengl.util.awt TextRenderer]
            [com.jogamp.common.nio Buffers]
            [java.nio FloatBuffer]
@@ -114,35 +115,12 @@
     (GLU/gluTessEndPolygon tess)
     (to-buffered (resfn))))
 
-(defn read-path-iterator [^FlatteningPathIterator it]
-  (loop [res ()]
-    (if (.isDone it)
-      res
-      (recur (let [fl (float-array 2)
-                   r (.currentSegment it fl)]
-               (condp = r
-                 PathIterator/SEG_MOVETO
-                 (do
-                   (.next it)
-                   (conj res [fl]))
-                 PathIterator/SEG_LINETO
-                 (do
-                   (.next it)
-                   (conj (rest res) (conj (first res) fl)))
-                 PathIterator/SEG_CLOSE
-                 (do
-                   (.next it)
-                   res)))))))
-
-(defn tess-obj [{:keys [ls ps line-width] :as x} xs]
-  (let [^Shape pol (get-polygon x xs)
+(defn tess-obj [{:keys [line-width line-middle-width] :as x} xs]
+  (let [^Shape pol (get-polygon x xs true)
         flit (FlatteningPathIterator. (.getPathIterator pol nil) 0.1)
-        strpol (.createStrokedShape (BasicStroke. line-width
-                                                  BasicStroke/CAP_ROUND
-                                                  BasicStroke/JOIN_ROUND)
-                                    pol)
-        strflit (FlatteningPathIterator. (.getPathIterator strpol nil) 0.1)]
-    [(record-fill (read-path-iterator strflit))
+        foo (make-stroke (read-path-iterator (FlatteningPathIterator. (.getPathIterator ^Shape (get-polygon x xs false) nil) 0.1))
+                         line-width line-middle-width)]
+    [(record-fill foo)
      (record-fill (read-path-iterator flit))]))
 
 (defn retrive-obj [obj xs]
@@ -175,7 +153,7 @@
       (paint-buffered-points gl line))))
 
 (defn expand-sel [x color xs size]
-  (expand-sibling (dissoc (assoc x :line-color color :line-width size) :clip :fill-color) xs))
+  (expand-sibling (dissoc (assoc x :line-color color :line-width size :line-middle-width 0) :clip :fill-color) xs))
 
 (defn gather-sels [selection color xs size]
   (apply concat (for [i (keys selection)]

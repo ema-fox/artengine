@@ -14,7 +14,9 @@
            [java.awt RenderingHints]
            [java.awt.geom Area]))
 
-(def rstate (ref {:scene {:objs {} :layers {1 {:stack [] :name "foo" :edit true :view true}} :layers-ord [1]}
+(def FORMAT 2)
+
+(def rstate (ref {:scene {:format FORMAT :objs {} :layers {1 {:stack [] :name "foo" :edit true :view true}} :layers-ord [1]}
                   :selected-layer 1
                   :selection {}
                   :action-start nil
@@ -57,11 +59,17 @@
    (spit path (:scene @rstate))))
 
 (defn open [path state]
-  (dosync
-   (ref-set file-path path))
-  (assoc state
-    :scene (read-string (slurp path))
-    :selection {}))
+   (let [scene (read-string (slurp path))]
+     (if (= (:format scene) FORMAT)
+       (do
+         (dosync
+          (ref-set file-path path))
+         (assoc state
+           :scene scene
+           :selection {}))
+       (do
+         (alert (str "File has format version " (or (:format scene) 1) " this version of Artengine can only open format version " FORMAT))
+         state))))
 
 (declare show-export-gui export-gui exp export-stuff)
 
@@ -196,10 +204,10 @@
        nil))
    (repaint! can)))
 
-(defn do-wheel [rot shift state]
-  (if shift
-    (act state adjust-line rot)
-    (update-in state [:trans 0] #(* % (Math/pow 0.9 rot)))))
+(defn do-wheel [state rot shift control]
+  (cond shift (act state adjust-line rot)
+        control (act state adjust-line-middle rot)
+        :else (update-in state [:trans 0] #(* % (Math/pow 0.9 rot)))))
 
 (defn mouse-wheeled [e]
   (dosync
@@ -207,16 +215,16 @@
   (repaint! can))
 
 (defmethod kp [KeyEvent/VK_PLUS] [_ state _]
-  (do-wheel -1 false state))
+  (do-wheel state -1 false false))
 
 (defmethod kp [KeyEvent/VK_PLUS :shift] [_ state _]
-  (do-wheel -1 true state))
+  (do-wheel state -1 true false))
 
 (defmethod kp [KeyEvent/VK_MINUS] [_ state _]
-  (do-wheel 1 false state))
+  (do-wheel state 1 false false))
 
 (defmethod kp [KeyEvent/VK_MINUS :shift] [_ state _]
-  (do-wheel 1 true state))
+  (do-wheel state 1 true false))
 
 (defn reshow-layer-gui []
   (repaint! can)

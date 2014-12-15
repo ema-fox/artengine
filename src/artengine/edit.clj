@@ -170,14 +170,15 @@
 			      :softs {1 false}
 			      :ls [1]
 			      :closed false
-			      :line-color [0 0 0 255]
-			      :line-width 1})
+                              :line-color [0 0 0 255]
+                              :line-width 1
+                              :line-middle-width 1})
       :layers (add-to-stack layers layeri [newi]))))
 
 (defn new-sketch [{:keys [layers objs] :as scene} p layeri]
   (let [newi (get-new-key objs)]
     (assoc scene
-      :objs (assoc objs newi {:ps {1 p} :ls [1] :line-width 20 :line-color [0 0 0 30]})
+      :objs (assoc objs newi {:ps {1 p} :ls [1] :line-width 20 :line-middle-width 1 :line-color [0 0 0 30]})
       :layers (add-to-stack layers layeri [newi]))))
 
 (deftool end-sketch [p]
@@ -194,6 +195,10 @@
 (deftool adjust-line [amount]
   (assoc x
     :line-width (* (:line-width x) (Math/pow 0.9 amount))))
+
+(deftool adjust-line-middle [amount]
+  (assoc x
+    :line-middle-width (* (:line-middle-width x) (Math/pow 0.9 amount))))
 
 (defn fix-obj [{:keys [sibling] :as x} xs]
   (if (and sibling (not (get xs sibling)))
@@ -385,8 +390,8 @@
     (scale-steps-tool scene selection origin (scale-factor origin pa pb))))
 
 (defn intersect? [obja objb objs]
-  (not (.isEmpty (doto (Area. (get-polygon obja objs))
-                        (.intersect (Area. (get-polygon objb objs)))))))
+  (not (.isEmpty (doto (Area. (get-polygon obja objs true))
+                        (.intersect (Area. (get-polygon objb objs true)))))))
 
 (defn move-down [stack sel-objs objs]
   (let [sel? (set sel-objs)
