@@ -115,13 +115,15 @@
     (GLU/gluTessEndPolygon tess)
     (to-buffered (resfn))))
 
-(defn tess-obj [{:keys [line-width line-middle-width] :as x} xs]
-  (let [^Shape pol (get-polygon x xs true)
-        flit (FlatteningPathIterator. (.getPathIterator pol nil) 0.1)
-        foo (make-stroke (read-path-iterator (FlatteningPathIterator. (.getPathIterator ^Shape (get-polygon x xs false) nil) 0.1))
-                         line-width line-middle-width)]
-    [(record-fill foo)
-     (record-fill (read-path-iterator flit))]))
+(defn pol->buf [^Shape pol]
+  (-> (.getPathIterator pol nil)
+      (FlatteningPathIterator. 0.1)
+      read-path-iterator
+      record-fill))
+
+(defn tess-obj [x xs]
+  [(pol->buf (get-stroke-polygon x xs))
+   (pol->buf (get-polygon x xs))])
 
 (defn retrive-obj [obj xs]
   (when-not (@cache obj)

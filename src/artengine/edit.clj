@@ -390,8 +390,8 @@
     (scale-steps-tool scene selection origin (scale-factor origin pa pb))))
 
 (defn intersect? [obja objb objs]
-  (not (.isEmpty (doto (Area. (get-polygon obja objs true))
-                        (.intersect (Area. (get-polygon objb objs true)))))))
+  (not (.isEmpty (doto (Area. (get-polygon obja objs))
+                        (.intersect (Area. (get-polygon objb objs)))))))
 
 (defn move-down [stack sel-objs objs]
   (let [sel? (set sel-objs)
