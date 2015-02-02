@@ -1,10 +1,12 @@
 (ns artengine.draw
   (:use [artengine util polygon edit mouse selection]
+        [clojure.java.io :only [file]]
         [seesaw color graphics])
   (:import [java.awt.geom FlatteningPathIterator PathIterator]
            [java.awt BasicStroke Shape Font]
            [java.awt.geom GeneralPath]
            [com.jogamp.opengl.util.awt TextRenderer]
+           [com.jogamp.opengl.util.texture Texture TextureIO]
            [com.jogamp.common.nio Buffers]
            [java.nio FloatBuffer]
            [javax.media.opengl GL GLCapabilities GLProfile GL2 GLAutoDrawable]
@@ -12,7 +14,18 @@
 
 (set! *warn-on-reflection* true)
 
+(def tex-buffer (let [buf (Buffers/newDirectFloatBuffer 8)]
+                  (doseq [f [0.0 1.0
+                             0.0 0.0
+                             1.0 0.0
+                             1.0 1.0]]
+                    (.put buf (float f)))
+                  (.flip buf)
+                  buf))
+
 (def cache (ref {}))
+
+(def tex-cache (ref {}))
 
 (defn set-color [^GL2 gl [c0 c1 c2 c3]]
   (.glColor4f gl (float (/ c0 255.0)) (float (/ c1 255.0)) (float (/ c2 255.0)) (float (/ c3 255.0))))
@@ -145,17 +158,40 @@
     (.glVertexPointer gl 2 GL2/GL_FLOAT 0 buf)
     (.glDrawArrays gl type 0 (/ (.limit buf) 2))))
 
-(defn paint [gl {:keys [fill-color line-color line-width] :as x} xs]
+(defn paint-tex [^GL2 gl ^Texture tex ps]
+  (.glEnable gl GL2/GL_TEXTURE_2D)
+  (.glEnableClientState gl GL2/GL_TEXTURE_COORD_ARRAY)
+  (set-color gl [255 255 255 255])
+  (.bind tex gl)
+  (.glTexCoordPointer gl 2 GL2/GL_FLOAT 0 ^FloatBuffer tex-buffer)
+  (let [buf (Buffers/newDirectFloatBuffer 8)]
+    (doseq [[^Float p0  ^Float p1] (take 4 ps)]
+      (.put buf p0)
+      (.put buf p1))
+    (.flip buf)
+    (.glVertexPointer gl 2 GL2/GL_FLOAT 0 buf))
+  (.glDrawArrays gl GL2/GL_QUADS 0 4)
+  (.glDisable gl GL2/GL_TEXTURE_2D)
+  (.glEnableClientState gl GL2/GL_VERTEX_ARRAY))
+
+(defn load-tex [tex-path]
+  (cached-under tex-cache tex-path #(TextureIO/newTexture (file tex-path) false)))
+
+(defn paint [gl {:keys [fill-color line-color tex-path] :as x} xs]
   (let [[line fill] (retrive-obj x xs)]
     (when fill-color
       (set-color gl fill-color)
       (paint-buffered-points gl fill))
+    (when tex-path
+      (paint-tex gl
+                 (load-tex tex-path)
+                 (map (:ps x) (:ls x))))
     (when line-color
       (set-color gl line-color)
       (paint-buffered-points gl line))))
 
 (defn expand-sel [x color xs size]
-  (expand-sibling (dissoc (assoc x :line-color color :line-width size :line-middle-width 0) :clip :fill-color) xs))
+  (expand-sibling (dissoc (assoc x :line-color color :line-width size :line-middle-width 0) :tex-path :clip :fill-color) xs))
 
 (defn gather-sels [selection color xs size]
   (apply concat (for [i (keys selection)]

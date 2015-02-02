@@ -123,6 +123,20 @@
     (open path state)
     state))
 
+(defmethod kp [KeyEvent/VK_B :ctrl] [_ state _]
+  (if-let [path (str (choose-file))]
+    (let [tex (ImageIO/read (file path))
+          width (.getWidth tex)
+          height (.getHeight tex)]
+      (assoc state
+        :scene (add-obj (:scene state)
+                        (assoc (obj-from-points [[0 0] [0 height] [width height] [width 0]])
+                          :closed true
+                          :line-color nil
+                          :tex-path path)
+                        (:selected-layer state))))
+    state))
+
 (defmethod kp [KeyEvent/VK_E :ctrl] [_ state _]
   (show-export-gui)
   (assoc state

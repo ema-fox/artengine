@@ -163,23 +163,31 @@
                              foo)))
      newis]))
 
-(defn new-obj [{:keys [layers objs] :as scene} p layeri]
+(defn obj-from-points [ps]
+  (let [ls (vec (range (count ps)))]
+    {:ps (into {} (map vector ls ps))
+     :softs (into {} (map #(vector % false) ls))
+     :ls ls
+     :closed false
+     :line-color [0 0 0 255]
+     :line-width 1
+     :line-middle-width 1}))
+
+(defn add-obj [{:keys [layers objs] :as scene} obj layeri]
   (let [newi (get-new-key objs)]
     (assoc scene
-      :objs (assoc objs newi {:ps {1 p}
-			      :softs {1 false}
-			      :ls [1]
-			      :closed false
-                              :line-color [0 0 0 255]
-                              :line-width 1
-                              :line-middle-width 1})
+      :objs (assoc objs newi obj)
       :layers (add-to-stack layers layeri [newi]))))
 
-(defn new-sketch [{:keys [layers objs] :as scene} p layeri]
-  (let [newi (get-new-key objs)]
-    (assoc scene
-      :objs (assoc objs newi {:ps {1 p} :ls [1] :line-width 20 :line-middle-width 1 :line-color [0 0 0 30]})
-      :layers (add-to-stack layers layeri [newi]))))
+(defn new-obj [scene p layeri]
+  (add-obj scene (obj-from-points [p]) layeri))
+
+(defn new-sketch [scene p layeri]
+  (add-obj scene
+           (assoc (obj-from-points [p])
+             :line-width 20
+             :line-color [0 0 0 30])
+           layeri))
 
 (deftool end-sketch [p]
   (assoc x
