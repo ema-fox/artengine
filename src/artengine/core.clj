@@ -7,12 +7,9 @@
   (:import [java.awt.event KeyEvent MouseEvent]
            [java.awt Frame Dimension]
            [javax.media.opengl.awt GLCanvas]
-           [javax.media.opengl GLEventListener GL GLCapabilities GLProfile GL2 GLAutoDrawable GLDrawableFactory]
-           [javax.media.opengl.glu GLU GLUtessellatorCallback]
-           [com.jogamp.opengl.util.awt Screenshot]
-           [javax.imageio ImageIO]
-           [java.awt RenderingHints]
-           [java.awt.geom Area]))
+           [javax.media.opengl GLEventListener GL GLCapabilities GLProfile GLAutoDrawable GLDrawableFactory]
+           [com.jogamp.opengl.util GLReadBufferUtil]
+           [javax.imageio ImageIO]))
 
 (def FORMAT 2)
 
@@ -97,14 +94,14 @@
                                    (init [d])
                                    (reshape [& xs])
                                    (display [^GLAutoDrawable d]
-                                     (let [gl (.getGL2 (.getGL d))]
+                                     (let [gl (.getGL2 (.getGL d))
+                                           read-buffer-util (GLReadBufferUtil. true false)]
                                        (render-raw gl
                                                    (:scene @rstate)
                                                    [@export-scale (mult (first foo) -1)]
                                                    bla)
-                                       (ImageIO/write (Screenshot/readToBufferedImage (first bla)
-                                                                                      (second bla))
-                                                      "png" (file path))))))
+                                       (.readPixels read-buffer-util gl false)
+                                       (.write read-buffer-util (file path))))))
     (.display pbuffer)))
 
 (defmethod kp [KeyEvent/VK_Q :ctrl] [_ _ _]
