@@ -83,13 +83,11 @@
 (defn export [path]
   (let [[foo bla] (export-stuff @rstate @export-scale)
         fact (GLDrawableFactory/getDesktopFactory)
-        cont (.getContext can)
-        pbuffer (.createGLPbuffer fact
-                                  nil
-                                  (GLCapabilities. (GLProfile/getDefault))
-                                  nil
-                                  (first bla) (second bla)
-                                  cont)]
+        pbuffer (.createOffscreenAutoDrawable fact
+                                              nil
+                                              (GLCapabilities. (GLProfile/getDefault))
+                                              nil
+                                              (first bla) (second bla))]
     (.addGLEventListener pbuffer (proxy [GLEventListener] []
                                    (init [d])
                                    (reshape [& xs])
