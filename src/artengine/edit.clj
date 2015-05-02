@@ -119,7 +119,7 @@
     (let [newi (get-new-key ps)]
       (assoc x
 	:ls (conj (vec ls) newi)
-	:softs (assoc softs newi false)
+	:softs (assoc softs newi true)
 	:ps (assoc ps newi p)))))
 
 (defn add-to-stack [layers layeri obj-is]
