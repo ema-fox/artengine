@@ -309,7 +309,8 @@
 
 (deftool pick-style [masteri]
   (let [master (get objs masteri)]
-    (merge (dissoc x :line-width :line-color :fill-color) (select-keys master [:line-width :line-color :fill-color]))))
+    (merge (dissoc x :line-width :line-middle-width :line-color :fill-color)
+           (select-keys master [:line-width :line-middle-width :line-color :fill-color]))))
 
 (defn rotate-factor [origin pa pb]
   (let [[a1 _] (avec<-dvec (minus pa origin))
