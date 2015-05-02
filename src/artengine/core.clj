@@ -363,7 +363,10 @@
 (def size (ref [0 0]))
 
 (defn -main []
-  (def can (doto (GLCanvas.)
+  (def can (doto (GLCanvas.
+                  (doto (GLCapabilities. (GLProfile/getDefault))
+                    (.setSampleBuffers true)
+                    (.setNumSamples 8)))
              (.setPreferredSize (Dimension. 600 600))))
   (def fr (Frame.))
   (.addGLEventListener can (proxy [GLEventListener] []
