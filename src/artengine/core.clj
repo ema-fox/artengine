@@ -1,7 +1,7 @@
 (ns artengine.core
   (:gen-class)
   (:use [artengine util edit selection polygon key mouse draw]
-	[seesaw [core :exclude [select action selection] :as s] graphics color chooser]
+	[seesaw [core :exclude [select action selection] :as s] graphics color]
 	[clojure stacktrace set]
         [clojure.java.io :exclude [copy]])
   (:import [java.awt.event KeyEvent MouseEvent]
@@ -108,19 +108,19 @@
 (defmethod kp [KeyEvent/VK_S :ctrl] [_ state _]
   (dosync
    (if-not @file-path
-     (ref-set file-path (choose-file :type :save)))
+     (ref-set file-path (get-file :save "Art files" "art")))
    (if @file-path
      (save @file-path)))
   state)
 
 (defmethod kp [KeyEvent/VK_O :ctrl] [_ state _]
-  (if-let [path (choose-file)]
+  (if-let [path (get-file :open "Art files" "art")]
     (open path state)
     state))
 
 (defmethod kp [KeyEvent/VK_B :ctrl] [_ state _]
-  (if-let [path (str (choose-file))]
-    (let [tex (ImageIO/read (file path))
+  (if-let [path (get-file"include" "PNGs" "png")]
+    (let [tex (ImageIO/read path)
           width (.getWidth tex)
           height (.getHeight tex)]
       (assoc state
@@ -128,7 +128,7 @@
                         (assoc (obj-from-points [[0 0] [0 height] [width height] [width 0]])
                           :closed true
                           :line-color nil
-                          :tex-path path)
+                          :tex-path (str path))
                         (:selected-layer state))))
     state))
 
@@ -148,7 +148,7 @@
      (ref-set exp newexp))))
 
 (defn do-export []
-  (if-let [path (choose-file :type "export")]
+  (if-let [path (get-file "export" "PNGs" "png")]
     (export path))
   (do-cancel-export))
 

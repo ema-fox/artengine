@@ -1,6 +1,7 @@
 (ns artengine.util
   (:use [seesaw graphics chooser color])
-  (:import [java.awt BasicStroke]
+  (:import [java.util.prefs Preferences]
+           [java.awt BasicStroke]
 	   [java.awt.geom AffineTransform]))
 
 (def tau (* 2 Math/PI))
@@ -124,3 +125,10 @@
 (defn get-color [c1]
   (if-let [c2 (choose-color :color (apply color c1))]
     [(.getRed c2) (.getGreen c2) (.getBlue c2) (.getAlpha c2)]))
+
+(defn get-file [type filter-name filter-ext]
+  (let [prefs (.node (Preferences/userRoot) "artengine/paths")]
+    (when-let [f (choose-file :type type :filters [[filter-name [filter-ext]]]
+                              :dir (.get prefs (str type) (System/getProperty "user.home")))]
+      (.put prefs (str type) (.getParent f))
+      f)))
