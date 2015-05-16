@@ -30,6 +30,6 @@ To make a new point on an existing path press E.
 
 ## License
 
-Except for the content of the folder jogamp, Copyright (C) 2012 Emanuel Rylke
+Copyright (C) 2012-2015 Emanuel Rylke
 
 Distributed under the Eclipse Public License, the same as Clojure.
