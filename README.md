@@ -4,13 +4,11 @@ A vector drawing program.
 
 ## Usage
 
-To start the latest alpha build run [this jnlp](http://ema-fox.github.com/artengine/artengine.jnlp) with java web start.
-
 To start the development version you have to install [leinigen](https://github.com/technomancy/leiningen) and run `lein run` in this folder.
 
 ---
 
-To make a new path press space. Click to make new points. Press space again or rightclick to finish the path.
+To make a new path press space. Click to make new points. Rightclick to finish the path.
 
 To toggle between mesh mode (where you manipulate individual points) and object mode (where you manipulate whole paths) press tab.
 
