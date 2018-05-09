@@ -55,6 +55,14 @@
   (dosync
    (spit path (:scene @rstate))))
 
+(add-watch rstate :backup
+           (fn [_ _ old-state new-state]
+             (if (not= (:scene old-state) (:scene new-state))
+               (save (str (if @file-path
+                            (.getPath @file-path)
+                            "unamed")
+                          "~")))))
+
 (defn open [path state]
    (let [scene (read-string (slurp path))]
      (if (= (:format scene) FORMAT)
